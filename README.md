@@ -22,14 +22,14 @@ This offers state-of-the-art efficiency and scalability compared to other LRU-ba
 ### S3-FIFO & SIEVE
 Various workloads typically follows Power law distribution (e.g. Zipfian distribution) as shown in the following figure.
 
-![zipflaw_discovered_by_realworld](../golang-fifo/docs/zipf_law_discovered_by_realworld_traces.png)
+![zipflaw_discovered_by_realworld](./docs/zipf_law_discovered_by_realworld_traces.png)
 
 The analysis reveals that most requests are "one-hit-wonders", accessed only once.
 Consequently, a cache eviction strategy should quickly remove most objects after insertion.
 
 **S3-FIFO** and **SIEVE** achieves this goal with simplicity, efficiency, and scalability using simple FIFO queue only.
 
-![s3-fifo-is-powerful-algorithm](../golang-fifo/docs/graphs_shows_s3_fifo_is_powerful.png)
+![s3-fifo-is-powerful-algorithm](./docs/graphs_shows_s3_fifo_is_powerful.png)
 
 ### Contribution
 How to run unit test
