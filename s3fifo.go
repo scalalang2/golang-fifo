@@ -24,7 +24,7 @@ type S3FIFO[K comparable, V any] struct {
 	longHM  map[uint64]uint64 // longHM represents long-term hashmap index
 	short   *queue.BytesQueue
 	long    *queue.BytesQueue
-	ghost   map[uint64]bool // TO-DO: ghost should be replaced to bucket-based hash table.
+	ghost   map[uint64]bool // TODO: ghost should be replaced to the bucket-based hash table.
 }
 
 func NewS3FIFO[K comparable, V any](maxSize int) *S3FIFO[K, V] {
@@ -89,6 +89,7 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, err error) {
 		return value, err
 	}
 
+	// TODO: It needs to handle hash collision
 	if idx, exist := s.shortHM[hashKey]; exist {
 		blob, err := s.short.Get(int(idx))
 		if err != nil {
