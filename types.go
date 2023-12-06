@@ -9,14 +9,14 @@ type Cache[K comparable, V any] interface {
 	Get(key K) (value V, err error)
 
 	// Contains check if a key exists in cache without updating the recent-ness
-	Contains(key K) (ok bool, err error)
+	Contains(key K) (exist bool)
 
 	// Peek returns key's value without updating the recent-ness.
-	Peek(key K) (value V, ok bool, err error)
+	Peek(key K) (value V, exist bool, err error)
 
 	// Len returns the number of entries in the cache.
 	Len() int
 
 	// Clean clears all cache entries
-	Clean() error
+	Clean()
 }

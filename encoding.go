@@ -12,26 +12,22 @@ const (
 	headerSizeInByte = 8 // 8 bytes for uint64
 )
 
-func fnvHash[K comparable](key K) (uint64, error) {
+func fnvHash[K comparable](key K) uint64 {
 	var b bytes.Buffer
 	if err := gob.NewEncoder(&b).Encode(key); err != nil {
-		return 0, fmt.Errorf("failed to encode key, seems like key is nil, err: %v", err)
+		panic(fmt.Sprintf("key cannot be nil err: %v", err))
 	}
 
 	hasher := fnv.New64()
-	if _, err := hasher.Write(b.Bytes()); err != nil {
-		return 0, fmt.Errorf("failed to write key using 64-bit fnv hash, err: %v", err)
-	}
-	return hasher.Sum64(), nil
+	_, _ = hasher.Write(b.Bytes()) // ignore because this does not return error
+	return hasher.Sum64()
 }
 
 func wrapEntry[V any](hashKey uint64, value V) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(value); err != nil {
+	entry, err := encode[V](value)
+	if err != nil {
 		return nil, err
 	}
-	entry := buf.Bytes()
 
 	blobLength := len(entry) + headerSizeInByte
 	blob := make([]byte, blobLength)

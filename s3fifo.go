@@ -51,10 +51,7 @@ func (s *S3FIFO[K, V]) Set(key K, value V) error {
 		}
 	}
 
-	hashKey, err := fnvHash(key)
-	if err != nil {
-		return err
-	}
+	hashKey := fnvHash(key)
 
 	// handle collision
 	if err := s.handleCollision(hashKey); err != nil {
@@ -90,11 +87,7 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, err error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	hashKey, err := fnvHash(key)
-	if err != nil {
-		return value, err
-	}
-
+	hashKey := fnvHash(key)
 	if idx, exist := s.shortHM[hashKey]; exist {
 		blob, err := s.short.Get(int(idx))
 		if err != nil {
@@ -131,6 +124,67 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, err error) {
 
 func (s *S3FIFO[K, V]) Len() int {
 	return s.short.Len() + s.long.Len()
+}
+
+func (s *S3FIFO[K, V]) Contains(key K) bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	hashKey := fnvHash(key)
+	if _, exist := s.shortHM[hashKey]; exist {
+		return true
+	}
+
+	if _, exist := s.longHM[hashKey]; exist {
+		return true
+	}
+	return false
+}
+
+func (s *S3FIFO[K, V]) Peek(key K) (value V, ok bool, err error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	hashKey := fnvHash(key)
+	if idx, exist := s.shortHM[hashKey]; exist {
+		blob, err := s.short.Get(int(idx))
+		if err != nil {
+			return value, false, err
+		}
+
+		_, value, err = unwrapEntry[V](blob)
+		if err != nil {
+			return value, false, err
+		}
+		return value, true, nil
+	}
+
+	if idx, exist := s.longHM[hashKey]; exist {
+		blob, err := s.long.Get(int(idx))
+		if err != nil {
+			return value, false, err
+		}
+
+		_, value, err = unwrapEntry[V](blob)
+		if err != nil {
+			return value, false, err
+		}
+		return value, true, nil
+	}
+
+	return value, false, nil
+}
+
+func (s *S3FIFO[K, V]) Clean() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.freq = make(map[uint64]byte)
+	s.shortHM = make(map[uint64]uint64)
+	s.longHM = make(map[uint64]uint64)
+	s.short = queue.NewBytesQueue(initCapacityInBytes, maxCapacityInBytes, false)
+	s.long = queue.NewBytesQueue(initCapacityInBytes, maxCapacityInBytes, false)
+	s.ghost = make(map[uint64]bool)
 }
 
 func (s *S3FIFO[K, V]) evict() error {
