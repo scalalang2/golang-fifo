@@ -127,3 +127,22 @@ func TestLengthOnCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "changed", value)
 }
+
+func TestCleanOnCache(t *testing.T) {
+	cache := NewS3FIFO[int, int](10)
+	entries := []int{1, 2, 3, 4, 5}
+
+	for _, v := range entries {
+		require.NoError(t, cache.Set(v, v*10))
+	}
+	require.Equal(t, 5, cache.Len())
+	cache.Clean()
+
+	// check if each entry exists in the cache
+	for _, v := range entries {
+		_, exist, err := cache.Peek(v)
+		require.NoError(t, err)
+		require.False(t, exist)
+	}
+	require.Equal(t, 0, cache.Len())
+}
