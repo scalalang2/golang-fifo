@@ -1,6 +1,7 @@
 package fifo
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 
@@ -55,6 +56,11 @@ func (s *S3FIFO[K, V]) Set(key K, value V) error {
 		return err
 	}
 
+	// handle collision
+	if err := s.handleCollision(hashKey); err != nil {
+		return err
+	}
+
 	blob, err := wrapEntry(hashKey, value)
 	if err != nil {
 		return err
@@ -89,7 +95,6 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, err error) {
 		return value, err
 	}
 
-	// TODO: It needs to handle hash collision
 	if idx, exist := s.shortHM[hashKey]; exist {
 		blob, err := s.short.Get(int(idx))
 		if err != nil {
@@ -101,6 +106,7 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, err error) {
 			return value, err
 		}
 
+		// TODO: possibly need to change this to a lock-free implementation
 		s.freq[hashKey] = min(s.freq[hashKey]+1, 3)
 		return value, nil
 	}
@@ -204,6 +210,38 @@ func (s *S3FIFO[K, V]) evictLong() error {
 		} else {
 			evicted = true
 		}
+	}
+
+	return nil
+}
+
+// handleCollision handles hash-collisions
+// It fill the hash key with zeros in the entry, and that the entry will be evicted in the next eviction.
+func (s *S3FIFO[K, V]) handleCollision(hashKey uint64) error {
+	if idx, exist := s.shortHM[hashKey]; exist {
+		data, err := s.short.Get(int(idx))
+		if err != nil {
+			return err
+		}
+		delete(s.shortHM, hashKey)
+		delete(s.freq, hashKey)
+
+		// reset hash key to zero
+		binary.LittleEndian.PutUint64(data[:headerSizeInByte], 0)
+		return nil
+	}
+
+	if idx, exist := s.longHM[hashKey]; exist {
+		data, err := s.long.Get(int(idx))
+		if err != nil {
+			return err
+		}
+		delete(s.longHM, hashKey)
+		delete(s.freq, hashKey)
+
+		// reset hash key to zero
+		binary.LittleEndian.PutUint64(data[:headerSizeInByte], 0)
+		return nil
 	}
 
 	return nil
