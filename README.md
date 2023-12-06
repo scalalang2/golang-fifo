@@ -20,11 +20,11 @@ This offers state-of-the-art efficiency and scalability compared to other LRU-ba
   protected by lock, which limits the scalability.
 
 ### S3-FIFO & SIEVE
-Various workloads typically follows Power law distribution (e.g. Zipfian distribution) as shown in the following figure.
+Various workloads typically follows **Power law distribution (e.g. Zipf's law)** as shown in the following figure.
 
 ![zipflaw_discovered_by_realworld](./docs/zipf_law_discovered_by_realworld_traces.png)
 
-The analysis reveals that most requests are "one-hit-wonders", accessed only once.
+The analysis reveals that most requests are "one-hit-wonders", which means it's accessed only once.
 Consequently, a cache eviction strategy should quickly remove most objects after insertion.
 
 **S3-FIFO** and **SIEVE** achieves this goal with simplicity, efficiency, and scalability using simple FIFO queue only.
