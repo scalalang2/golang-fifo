@@ -415,12 +415,12 @@ func TestPushEntryAfterAllocateAdditionMemory(t *testing.T) {
 
 	// when
 	queue.Push([]byte("aaa"))
-	queue.Push([]byte("bb"))
+	queue.Push([]byte("bbb"))
 	queue.Pop()
 
 	// allocate more memory
 	assertEqual(t, 9, queue.Capacity())
-	queue.Push([]byte("c"))
+	queue.Push([]byte("cccc"))
 	assertEqual(t, 18, queue.Capacity())
 
 	// push after allocate
