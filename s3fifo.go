@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/scalalang2/golang-fifo/v1/internal"
+	"github.com/scalalang2/golang-fifo/v2/internal"
 )
 
 var ErrKeyNotFound = fmt.Errorf("key not found")
