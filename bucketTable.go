@@ -5,7 +5,7 @@ type bucketTable[K comparable] struct {
 	hash  map[K]bool
 }
 
-func newBucketHash[K comparable](size int) *bucketTable[K] {
+func newBucketTable[K comparable](size int) *bucketTable[K] {
 	return &bucketTable[K]{
 		queue: newRingBuf[K](size),
 		hash:  make(map[K]bool),

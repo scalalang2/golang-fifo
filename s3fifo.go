@@ -25,7 +25,7 @@ func NewS3FIFO[K comparable, V any](size int) *S3FIFO[K, V] {
 		items: make(map[K]V),
 		small: newRingBuf[K](size),
 		main:  newRingBuf[K](size),
-		ghost: newBucketHash[K](size),
+		ghost: newBucketTable[K](size),
 		freq:  make(map[K]byte),
 	}
 }
@@ -99,7 +99,7 @@ func (s *S3FIFO[K, V]) Clean() {
 	s.items = make(map[K]V)
 	s.small = newRingBuf[K](s.size)
 	s.main = newRingBuf[K](s.size)
-	s.ghost = newBucketHash[K](s.size)
+	s.ghost = newBucketTable[K](s.size)
 }
 
 func (s *S3FIFO[K, V]) evict() {
