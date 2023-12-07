@@ -34,6 +34,8 @@ func NewS3FIFO[K comparable, V any](size int) *S3FIFO[K, V] {
 
 func (s *S3FIFO[K, V]) Set(key K, value V) {
 	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if s.small.length()+s.main.length() >= s.size {
 		s.evict()
 	}
@@ -55,17 +57,17 @@ func (s *S3FIFO[K, V]) Set(key K, value V) {
 		}
 	}
 	s.items[key] = ent
-	s.lock.Unlock()
 }
 
 func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	if _, ok := s.items[key]; !ok {
 		return value, false
 	}
 	entry := s.items[key]
 	entry.Freq = min(entry.Freq+1, 3)
-	s.lock.RUnlock()
 	return entry.Val, true
 }
 
@@ -81,13 +83,12 @@ func (s *S3FIFO[K, V]) Contains(key K) (ok bool) {
 
 func (s *S3FIFO[K, V]) Peek(key K) (value V, ok bool) {
 	s.lock.RLock()
+	defer s.lock.RUnlock()
 
 	entry, ok := s.items[key]
 	if !ok {
 		return value, false
 	}
-
-	s.lock.RUnlock()
 	return entry.Val, true
 }
 
