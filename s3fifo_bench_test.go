@@ -17,10 +17,7 @@ func BenchmarkS3FIFOCacheSet(b *testing.B) {
 			cache := NewS3FIFO[int, int](items)
 
 			for i := 0; i < items; i++ {
-				err := cache.Set(i, i)
-				if err != nil {
-					b.Fatal(err)
-				}
+				cache.Set(i, i)
 			}
 		}
 	})
@@ -37,14 +34,11 @@ func BenchmarkS3FIFOCacheSetAndGet(b *testing.B) {
 			cache := NewS3FIFO[int, int](items)
 
 			for i := 0; i < items; i++ {
-				_ = cache.Set(i, i)
+				cache.Set(i, i)
 			}
 
 			for i := 0; i < items; i++ {
-				_, err := cache.Get(i)
-				if err != nil {
-					b.Fatal(err)
-				}
+				cache.Get(i)
 			}
 		}
 	})
@@ -65,6 +59,30 @@ func BenchmarkLRUCacheSet(b *testing.B) {
 
 			for i := 0; i < items; i++ {
 				cache.Add(i, i)
+			}
+		}
+	})
+}
+
+func BenchmarkLRUCacheSetAndGet(b *testing.B) {
+	const items = 1 << 16
+
+	b.ReportAllocs()
+	b.SetBytes(items)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			cache, err := lru.New[int, int](items)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			for i := 0; i < items; i++ {
+				cache.Add(i, i)
+			}
+
+			for i := 0; i < items; i++ {
+				cache.Get(i)
 			}
 		}
 	})

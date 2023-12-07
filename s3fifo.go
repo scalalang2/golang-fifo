@@ -1,15 +1,11 @@
 package fifo
 
 import (
-	"encoding/binary"
 	"fmt"
 	"sync"
 
-	"github.com/scalalang2/golang-fifo/v1/queue"
+	"github.com/scalalang2/golang-fifo/v1/internal"
 )
-
-const initCapacityInBytes = 1 << 20
-const maxCapacityInBytes = 1 << 30
 
 var ErrKeyNotFound = fmt.Errorf("key not found")
 
@@ -20,283 +16,130 @@ type S3FIFO[K comparable, V any] struct {
 	size int
 
 	// followings are the fundamental data structures of S3FIFO algorithm.
-	freq    map[uint64]byte
-	shortHM map[uint64]uint64 // shortHM represents short-term hashmap index
-	longHM  map[uint64]uint64 // longHM represents long-term hashmap index
-	short   *queue.BytesQueue
-	long    *queue.BytesQueue
-	ghost   map[uint64]bool // TODO: ghost should be replaced to the bucket-based hash table.
+	items map[K]*internal.Entry[K, V]
+	small *ringBuf[K]
+	main  *ringBuf[K]
+	ghost *bucketTable[K]
 }
 
-func NewS3FIFO[K comparable, V any](maxSize int) *S3FIFO[K, V] {
+func NewS3FIFO[K comparable, V any](size int) *S3FIFO[K, V] {
 	return &S3FIFO[K, V]{
-		size: maxSize,
-
-		freq:    make(map[uint64]byte),
-		shortHM: make(map[uint64]uint64),
-		longHM:  make(map[uint64]uint64),
-		short:   queue.NewBytesQueue(initCapacityInBytes, maxCapacityInBytes, false),
-		long:    queue.NewBytesQueue(initCapacityInBytes, maxCapacityInBytes, false),
-		ghost:   make(map[uint64]bool),
+		size:  size,
+		items: make(map[K]*internal.Entry[K, V]),
+		small: newRingBuf[K](size),
+		main:  newRingBuf[K](size),
+		ghost: newBucketHash[K](size),
 	}
 }
 
-func (s *S3FIFO[K, V]) Set(key K, value V) error {
+func (s *S3FIFO[K, V]) Set(key K, value V) {
 	s.lock.Lock()
-	defer s.lock.Unlock()
+	if s.small.length()+s.main.length() >= s.size {
+		s.evict()
+	}
 
-	for s.Len() >= s.size {
-		if err := s.evict(); err != nil {
-			return err
+	ent := &internal.Entry[K, V]{
+		Key:  key,
+		Val:  value,
+		Freq: 0,
+	}
+
+	if s.ghost.contains(key) {
+		s.ghost.remove(key)
+		if ok := s.main.push(key); !ok {
+			panic("main ring buffer is full, this is unexpected bug")
 		}
-	}
-
-	hashKey := fnvHash(key)
-
-	// handle collision
-	if err := s.handleCollision(hashKey); err != nil {
-		return err
-	}
-
-	blob, err := wrapEntry(hashKey, value)
-	if err != nil {
-		return err
-	}
-
-	if _, exist := s.ghost[hashKey]; exist {
-		idx, err := s.long.Push(blob)
-		if err != nil {
-			return err
-		}
-
-		s.longHM[hashKey] = uint64(idx)
-		delete(s.ghost, hashKey)
 	} else {
-		idx, err := s.short.Push(blob)
-		if err != nil {
-			return err
+		if ok := s.small.push(key); !ok {
+			panic(fmt.Errorf("small ring buffer is full, this is unexpected bug, len:%d, cap: %d", s.small.length(), s.small.capacity()))
 		}
-
-		s.shortHM[hashKey] = uint64(idx)
 	}
-
-	return nil
+	s.items[key] = ent
+	s.lock.Unlock()
 }
 
-func (s *S3FIFO[K, V]) Get(key K) (value V, err error) {
+func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
+	s.lock.RLock()
+	if _, ok := s.items[key]; !ok {
+		return value, false
+	}
+	entry := s.items[key]
+	entry.Freq = min(entry.Freq+1, 3)
+	s.lock.RUnlock()
+	return entry.Val, true
+}
+
+func (s *S3FIFO[K, V]) Contains(key K) (ok bool) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	hashKey := fnvHash(key)
-	if idx, exist := s.shortHM[hashKey]; exist {
-		blob, err := s.short.Get(int(idx))
-		if err != nil {
-			return value, err
-		}
-
-		_, value, err = unwrapEntry[V](blob)
-		if err != nil {
-			return value, err
-		}
-
-		// TODO: possibly need to change this to a lock-free implementation
-		s.freq[hashKey] = min(s.freq[hashKey]+1, 3)
-		return value, nil
-	}
-
-	if idx, exist := s.longHM[hashKey]; exist {
-		blob, err := s.long.Get(int(idx))
-		if err != nil {
-			return value, err
-		}
-
-		_, value, err = unwrapEntry[V](blob)
-		if err != nil {
-			return value, err
-		}
-
-		s.freq[hashKey] = min(s.freq[hashKey]+1, 3)
-		return value, nil
-	}
-
-	return value, ErrKeyNotFound
-}
-
-func (s *S3FIFO[K, V]) Len() int {
-	return s.short.Len() + s.long.Len()
-}
-
-func (s *S3FIFO[K, V]) Contains(key K) bool {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	hashKey := fnvHash(key)
-	if _, exist := s.shortHM[hashKey]; exist {
-		return true
-	}
-
-	if _, exist := s.longHM[hashKey]; exist {
+	if _, ok := s.items[key]; ok {
 		return true
 	}
 	return false
 }
 
-func (s *S3FIFO[K, V]) Peek(key K) (value V, ok bool, err error) {
+func (s *S3FIFO[K, V]) Peek(key K) (value V, ok bool) {
 	s.lock.RLock()
-	defer s.lock.RUnlock()
 
-	hashKey := fnvHash(key)
-	if idx, exist := s.shortHM[hashKey]; exist {
-		blob, err := s.short.Get(int(idx))
-		if err != nil {
-			return value, false, err
-		}
-
-		_, value, err = unwrapEntry[V](blob)
-		if err != nil {
-			return value, false, err
-		}
-		return value, true, nil
+	entry, ok := s.items[key]
+	if !ok {
+		return value, false
 	}
 
-	if idx, exist := s.longHM[hashKey]; exist {
-		blob, err := s.long.Get(int(idx))
-		if err != nil {
-			return value, false, err
-		}
+	s.lock.RUnlock()
+	return entry.Val, true
+}
 
-		_, value, err = unwrapEntry[V](blob)
-		if err != nil {
-			return value, false, err
-		}
-		return value, true, nil
-	}
-
-	return value, false, nil
+func (s *S3FIFO[K, V]) Len() int {
+	return s.small.length() + s.main.length()
 }
 
 func (s *S3FIFO[K, V]) Clean() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.freq = make(map[uint64]byte)
-	s.shortHM = make(map[uint64]uint64)
-	s.longHM = make(map[uint64]uint64)
-	s.short = queue.NewBytesQueue(initCapacityInBytes, maxCapacityInBytes, false)
-	s.long = queue.NewBytesQueue(initCapacityInBytes, maxCapacityInBytes, false)
-	s.ghost = make(map[uint64]bool)
+	s.items = make(map[K]*internal.Entry[K, V])
+	s.small = newRingBuf[K](s.size)
+	s.main = newRingBuf[K](s.size)
+	s.ghost = newBucketHash[K](s.size)
 }
 
-func (s *S3FIFO[K, V]) evict() error {
-	// if length of short-term queue is more than 10% of total cache size,
-	// then evict the oldest entry in short-term queue.
-	if s.short.Len() >= s.Len()/10 {
-		return s.evictShort()
+func (s *S3FIFO[K, V]) evict() {
+	if s.small.length() >= s.size/10 {
+		s.evictFromSmall()
 	} else {
-		return s.evictLong()
+		s.evictFromMain()
 	}
 }
 
-func (s *S3FIFO[K, V]) evictShort() error {
+func (s *S3FIFO[K, V]) evictFromSmall() {
 	evicted := false
-	for !evicted && s.short.Len() > 0 {
-		data, err := s.short.Peek()
-		if err != nil {
-			return err
-		}
-
-		hashKey, _, err := unwrapEntry[V](data)
-		if err != nil {
-			return err
-		}
-
-		if s.freq[hashKey] > 1 {
-			// if length of long-term queue is more than 90% of total cache size,
-			// then evict the oldest entry in long-term queue.
-			if s.long.Len()+1 >= s.Len()*9/10 {
-				if err := s.evictLong(); err != nil {
-					return err
-				}
+	for !evicted && !s.small.isEmpty() {
+		key := s.small.pop()
+		if s.items[key].Freq > 1 {
+			s.main.push(key)
+			if s.main.isFull() {
+				s.evictFromMain()
 			}
-
-			idx, err := s.long.Push(data)
-			if err != nil {
-				return err
-			}
-			s.longHM[hashKey] = uint64(idx)
 		} else {
-			s.ghost[hashKey] = true
-			delete(s.freq, hashKey)
 			evicted = true
+			s.ghost.remove(key)
+			delete(s.items, key)
 		}
-
-		delete(s.shortHM, hashKey)
-		_, err = s.short.Pop()
-		return err
 	}
-
-	return nil
 }
 
-func (s *S3FIFO[K, V]) evictLong() error {
+func (s *S3FIFO[K, V]) evictFromMain() {
 	evicted := false
-	for !evicted && s.long.Len() > 0 {
-		data, err := s.long.Pop()
-		if err != nil {
-			return err
-		}
-
-		hashKey, _, err := unwrapEntry[V](data)
-		if err != nil {
-			return err
-		}
-
-		delete(s.longHM, hashKey)
-
-		if s.freq[hashKey] > 0 {
-			// if freq is greater than or equal to 1, then promote the entry to the head.
-			s.freq[hashKey]--
-			idx, err := s.long.Push(data)
-			if err != nil {
-				return err
-			}
-			s.longHM[hashKey] = uint64(idx)
+	for !evicted && !s.main.isEmpty() {
+		key := s.main.pop()
+		if s.items[key].Freq > 0 {
+			s.main.push(key)
+			s.items[key].Freq--
 		} else {
+			s.ghost.remove(key)
 			evicted = true
 		}
 	}
-
-	return nil
-}
-
-// handleCollision handles hash-collisions
-// It fill the hash key with zeros in the entry, and that the entry will be evicted in the next eviction.
-func (s *S3FIFO[K, V]) handleCollision(hashKey uint64) error {
-	if idx, exist := s.shortHM[hashKey]; exist {
-		data, err := s.short.Get(int(idx))
-		if err != nil {
-			return err
-		}
-		delete(s.shortHM, hashKey)
-		delete(s.freq, hashKey)
-
-		// reset hash key to zero
-		binary.LittleEndian.PutUint64(data[:headerSizeInByte], 0)
-		return nil
-	}
-
-	if idx, exist := s.longHM[hashKey]; exist {
-		data, err := s.long.Get(int(idx))
-		if err != nil {
-			return err
-		}
-		delete(s.longHM, hashKey)
-		delete(s.freq, hashKey)
-
-		// reset hash key to zero
-		binary.LittleEndian.PutUint64(data[:headerSizeInByte], 0)
-		return nil
-	}
-
-	return nil
 }
