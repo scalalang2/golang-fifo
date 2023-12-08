@@ -3,7 +3,7 @@ package fifo
 // Cache is the interface for a cache.
 type Cache[K comparable, V any] interface {
 	// Set sets the value for the given key on cache.
-	Set(key K, value V) bool
+	Set(key K, value V)
 
 	// Get gets the value for the given key from cache.
 	Get(key K) (value V, ok bool)
