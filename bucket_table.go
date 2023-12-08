@@ -19,6 +19,7 @@ func (b *bucketTable[K]) add(key K) {
 	}
 
 	b.queue.push(key)
+	b.hash[key] = true
 }
 
 func (b *bucketTable[K]) remove(key K) {

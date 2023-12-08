@@ -121,7 +121,7 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 			}
 		} else {
 			evicted = true
-			s.ghost.remove(key)
+			s.ghost.add(key)
 			delete(s.freq, key)
 			delete(s.items, key)
 		}
