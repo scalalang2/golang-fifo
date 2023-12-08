@@ -108,10 +108,11 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 	for !evicted && !s.small.isEmpty() {
 		key := s.small.pop()
 		if s.freq[key] > 1 {
-			s.main.push(key)
 			if s.main.isFull() {
 				s.evictFromMain()
 			}
+
+			s.main.push(key)
 		} else {
 			evicted = true
 			s.ghost.add(key)
