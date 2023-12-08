@@ -118,7 +118,7 @@ func TestLengthOnCache(t *testing.T) {
 
 	cache.Set("hello2", "world")
 	cache.Set("hello", "changed")
-	require.Equal(t, 3, cache.Len())
+	require.Equal(t, 2, cache.Len())
 
 	value, ok := cache.Get("hello")
 	require.True(t, ok)

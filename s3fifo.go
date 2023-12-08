@@ -34,7 +34,13 @@ func (s *S3FIFO[K, V]) Set(key K, value V) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if s.small.length()+s.main.length() >= s.size {
+	if _, ok := s.items[key]; ok {
+		s.items[key] = value
+		s.freq[key] = min(s.freq[key]+1, 3)
+		return
+	}
+
+	for s.small.length()+s.main.length() >= s.size {
 		s.evict()
 	}
 
@@ -60,6 +66,7 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 	}
 
 	s.freq[key] = min(s.freq[key]+1, 3)
+	s.ghost.remove(key)
 	return s.items[key], true
 }
 
@@ -96,11 +103,12 @@ func (s *S3FIFO[K, V]) Clean() {
 }
 
 func (s *S3FIFO[K, V]) evict() {
-	if s.small.length() >= s.size/10 {
-		s.evictFromSmall()
-	} else {
+	mainCacheSize := s.size / 10 * 9
+	if s.main.length() > mainCacheSize || s.small.length() == 0 {
 		s.evictFromMain()
+		return
 	}
+	s.evictFromSmall()
 }
 
 func (s *S3FIFO[K, V]) evictFromSmall() {
@@ -108,14 +116,13 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 	for !evicted && !s.small.isEmpty() {
 		key := s.small.pop()
 		if s.freq[key] > 1 {
+			s.main.push(key)
 			if s.main.isFull() {
 				s.evictFromMain()
 			}
-
-			s.main.push(key)
 		} else {
-			evicted = true
 			s.ghost.add(key)
+			evicted = true
 			delete(s.freq, key)
 			delete(s.items, key)
 		}
@@ -131,7 +138,6 @@ func (s *S3FIFO[K, V]) evictFromMain() {
 			s.freq[key]--
 		} else {
 			evicted = true
-			s.ghost.remove(key)
 			delete(s.freq, key)
 			delete(s.items, key)
 		}
