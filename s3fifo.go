@@ -57,6 +57,9 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 
 	// on cache miss
 	if _, ok := s.items[key]; !ok {
+		if s.small.length()+s.main.length() >= s.size {
+			s.evict()
+		}
 		if s.ghost.contains(key) {
 			s.ghost.remove(key)
 			if ok := s.main.push(key); !ok {
@@ -66,9 +69,6 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 			if ok := s.small.push(key); !ok {
 				panic(fmt.Errorf("get(): small ring buffer is full, this is unexpected bug, len:%d, cap: %d", s.small.length(), s.small.capacity()))
 			}
-		}
-		if s.small.length()+s.main.length() >= s.size {
-			s.evict()
 		}
 		return value, false
 	}
@@ -122,10 +122,10 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 	for !evicted && !s.small.isEmpty() {
 		key := s.small.pop()
 		if s.freq[key] > 1 {
-			s.main.push(key)
 			if s.main.isFull() {
 				s.evictFromMain()
 			}
+			s.main.push(key)
 		} else {
 			evicted = true
 			s.ghost.add(key)
