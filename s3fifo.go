@@ -59,9 +59,16 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 	if _, ok := s.items[key]; !ok {
 		if s.ghost.contains(key) {
 			s.ghost.remove(key)
-			s.main.push(key)
+			if ok := s.main.push(key); !ok {
+				panic("get(): main ring buffer is full, this is unexpected bug")
+			}
 		} else {
-			s.small.push(key)
+			if ok := s.small.push(key); !ok {
+				panic(fmt.Errorf("get(): small ring buffer is full, this is unexpected bug, len:%d, cap: %d", s.small.length(), s.small.capacity()))
+			}
+		}
+		if s.small.length()+s.main.length() >= s.size {
+			s.evict()
 		}
 		return value, false
 	}
