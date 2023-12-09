@@ -5,6 +5,11 @@ import (
 	"sync"
 )
 
+type s3fifoEntry[V any] struct {
+	value V
+	freq  byte
+}
+
 type S3FIFO[K comparable, V any] struct {
 	lock sync.RWMutex
 
@@ -12,8 +17,7 @@ type S3FIFO[K comparable, V any] struct {
 	size int
 
 	// followings are the fundamental data structures of S3FIFO algorithm.
-	items map[K]V
-	freq  map[K]byte
+	items map[K]*s3fifoEntry[V]
 	small *ringBuf[K]
 	main  *ringBuf[K]
 	ghost *bucketTable[K]
@@ -22,11 +26,10 @@ type S3FIFO[K comparable, V any] struct {
 func NewS3FIFO[K comparable, V any](size int) Cache[K, V] {
 	return &S3FIFO[K, V]{
 		size:  size,
-		items: make(map[K]V),
+		items: make(map[K]*s3fifoEntry[V]),
 		small: newRingBuf[K](size),
 		main:  newRingBuf[K](size),
 		ghost: newBucketTable[K](size),
-		freq:  make(map[K]byte),
 	}
 }
 
@@ -35,8 +38,8 @@ func (s *S3FIFO[K, V]) Set(key K, value V) {
 	defer s.lock.Unlock()
 
 	if _, ok := s.items[key]; ok {
-		s.items[key] = value
-		s.freq[key] = min(s.freq[key]+1, 3)
+		s.items[key].value = value
+		s.items[key].freq = min(s.items[key].freq+1, 3)
 		return
 	}
 
@@ -54,7 +57,9 @@ func (s *S3FIFO[K, V]) Set(key K, value V) {
 			panic(fmt.Errorf("small ring buffer is full, this is unexpected bug, len:%d, cap: %d", s.small.length(), s.small.capacity()))
 		}
 	}
-	s.items[key] = value
+
+	ent := &s3fifoEntry[V]{value: value, freq: 0}
+	s.items[key] = ent
 }
 
 func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
@@ -65,9 +70,9 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 		return value, false
 	}
 
-	s.freq[key] = min(s.freq[key]+1, 3)
+	s.items[key].freq = min(s.items[key].freq+1, 3)
 	s.ghost.remove(key)
-	return s.items[key], true
+	return s.items[key].value, true
 }
 
 func (s *S3FIFO[K, V]) Contains(key K) (ok bool) {
@@ -84,8 +89,11 @@ func (s *S3FIFO[K, V]) Peek(key K) (value V, ok bool) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	value, ok = s.items[key]
-	return
+	ent, ok := s.items[key]
+	if !ok {
+		return value, false
+	}
+	return ent.value, ok
 }
 
 func (s *S3FIFO[K, V]) Len() int {
@@ -96,7 +104,7 @@ func (s *S3FIFO[K, V]) Clean() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.items = make(map[K]V)
+	s.items = make(map[K]*s3fifoEntry[V])
 	s.small = newRingBuf[K](s.size)
 	s.main = newRingBuf[K](s.size)
 	s.ghost = newBucketTable[K](s.size)
@@ -115,7 +123,7 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 	evicted := false
 	for !evicted && !s.small.isEmpty() {
 		key := s.small.pop()
-		if s.freq[key] > 1 {
+		if s.items[key].freq > 1 {
 			s.main.push(key)
 			if s.main.isFull() {
 				s.evictFromMain()
@@ -123,7 +131,6 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 		} else {
 			s.ghost.add(key)
 			evicted = true
-			delete(s.freq, key)
 			delete(s.items, key)
 		}
 	}
@@ -133,12 +140,11 @@ func (s *S3FIFO[K, V]) evictFromMain() {
 	evicted := false
 	for !evicted && !s.main.isEmpty() {
 		key := s.main.pop()
-		if s.freq[key] > 0 {
+		if s.items[key].freq > 0 {
 			s.main.push(key)
-			s.freq[key]--
+			s.items[key].freq--
 		} else {
 			evicted = true
-			delete(s.freq, key)
 			delete(s.items, key)
 		}
 	}
