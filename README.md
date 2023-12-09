@@ -5,14 +5,12 @@
 
 This is a modern cache implementation, **inspired** by the following papers, provides high efficiency.
 
-- **S3-FIFO** | [FIFO queues are all you need for cache eviction](https://dl.acm.org/doi/10.1145/3600006.3613147) (SOSP'23)
 - **SIEVE** | [SIEVE is Simpler than LRU: an Efficient Turn-Key Eviction Algorithm for Web Caches](https://junchengyang.com/publication/nsdi24-SIEVE.pdf) (NSDI'24)
-
-`golang-fifo` provides several cache eviction algorithms including S3-FIFO and SIEVE.
+- **S3-FIFO** | [FIFO queues are all you need for cache eviction](https://dl.acm.org/doi/10.1145/3600006.3613147) (SOSP'23)
 
 This offers state-of-the-art efficiency and scalability compared to other LRU-based cache algorithms.
 
-### Benchmark Result
+## Benchmark Result
 The benchmark result were obtained using [go-cache-benchmark](https://github.com/scalalang2/go-cache-benchmkark)
 
 ```
@@ -39,7 +37,7 @@ requiring a potentially slow lock acquisition,
 SIEVE only needs to update a single bit upon a cache hit. 
 This update can be done with a significantly faster reader lock, leading to increased performance.
 
-### Usage
+## Usage
 ```go
 import "github.com/scalalang2/golang-fifo/v2"
 
@@ -50,7 +48,7 @@ cache.Set("hello", "world")
 cache.Get("hello") // => "world"
 ```
 
-### Apendix
+## Apendix
 
 <details>
 <summary>Why LRU Cache is not good enough?</summary>
@@ -76,7 +74,7 @@ Consequently, a cache eviction strategy should quickly remove most objects after
 ![s3-fifo-is-powerful-algorithm](./docs/graphs_shows_s3_fifo_is_powerful.png)
 </details>
 
-### Contribution
+## Contribution
 How to run unit test
 ```bash
 $ go test -v ./...
