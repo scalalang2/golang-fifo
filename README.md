@@ -45,7 +45,8 @@ size := 1e5
 cache := fifo.NewSieve[string, string](size)
 
 cache.Set("hello", "world")
-cache.Get("hello") // => "world"
+val, _ := cache.Get("hello") 
+fmt.Printf("value: %s", val) // => "world"
 ```
 
 ## Apendix
