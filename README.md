@@ -11,7 +11,7 @@ This is a modern cache implementation, **inspired** by the following papers, pro
 This offers state-of-the-art efficiency and scalability compared to other LRU-based cache algorithms.
 
 ## Benchmark Result
-The benchmark result were obtained using [go-cache-benchmark](https://github.com/scalalang2/go-cache-benchmkark)
+The benchmark result were obtained using [go-cache-benchmark](https://github.com/scalalang2/go-cache-benchmark)
 
 ```
 itemSize=500000, workloads=7500000, cacheSize=0.10%, zipf's alpha=0.99, concurrency=16
