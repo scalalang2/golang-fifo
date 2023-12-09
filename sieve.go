@@ -1,6 +1,9 @@
 package fifo
 
-import "container/list"
+import (
+	"container/list"
+	"sync"
+)
 
 type entry[K comparable, V any] struct {
 	key     K
@@ -9,6 +12,7 @@ type entry[K comparable, V any] struct {
 }
 
 type Sieve[K comparable, V any] struct {
+	lock  sync.RWMutex
 	size  int
 	items map[K]*list.Element
 	ll    *list.List
@@ -24,6 +28,9 @@ func NewSieve[K comparable, V any](size int) Cache[K, V] {
 }
 
 func (s *Sieve[K, V]) Set(key K, value V) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if e, ok := s.items[key]; ok {
 		e.Value.(*entry[K, V]).value = value
 		e.Value.(*entry[K, V]).visited = true
@@ -38,6 +45,8 @@ func (s *Sieve[K, V]) Set(key K, value V) {
 }
 
 func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	if e, ok := s.items[key]; ok {
 		e.Value.(*entry[K, V]).visited = true
 		return e.Value.(*entry[K, V]).value, true
@@ -47,11 +56,16 @@ func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
 }
 
 func (s *Sieve[K, V]) Contains(key K) (ok bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	_, ok = s.items[key]
 	return
 }
 
 func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	if e, ok := s.items[key]; ok {
 		return e.Value.(*entry[K, V]).value, true
 	}
@@ -60,10 +74,16 @@ func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
 }
 
 func (s *Sieve[K, V]) Len() int {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	return s.ll.Len()
 }
 
 func (s *Sieve[K, V]) Clean() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	s.items = make(map[K]*list.Element)
 	s.ll = list.New()
 }
