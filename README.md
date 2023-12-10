@@ -28,9 +28,11 @@ itemSize=500000, workloads=7500000, cacheSize=0.10%, zipf's alpha=0.99, concurre
   lru-hashicorp  | 36.56%  | 0.08MiB | 2072396 | 2741646 | 4758354 
 ```
 
-**SIEVE** not only provides a high hit ratio, but also the highest QPS (Queries Per Second). 
-This means that SIEVE is able to process more requests per second than any other cache. 
-Additionally, SIEVE is about 10% more efficient than a simple LRU cache. 
+**SIEVE** delivers both high hit rates and the highest QPS(queries per seconds) compared to other LRU-based caches. 
+Additionally, It approximately improves 30% for efficiency than a simple LRU cache.
+
+Increasing efficiency means not only reducing cache misses, 
+but also reducing the demand for heavy operations such as backend database access, which lowers the mean latency.
 
 While LRU promotes accessed objects to the head of the queue, 
 requiring a potentially slow lock acquisition, 
