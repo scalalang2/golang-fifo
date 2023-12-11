@@ -63,8 +63,8 @@ func (s *S3FIFO[K, V]) Set(key K, value V) {
 }
 
 func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	if _, ok := s.items[key]; !ok {
 		return value, false
