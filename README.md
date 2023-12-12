@@ -16,16 +16,17 @@ The benchmark result were obtained using [go-cache-benchmark](https://github.com
 ```
 itemSize=500000, workloads=7500000, cacheSize=0.10%, zipf's alpha=0.99, concurrency=16
 
-      CACHE      | HITRATE | MEMORY  |   QPS   |  HITS   | MISSES   
+      CACHE      | HITRATE | MEMORY  |   QPS   |  HITS   | MISSES
 -----------------+---------+---------+---------+---------+----------
-  sieve          | 47.60%  | 0.12MiB | 2853881 | 3570146 | 3929854  
-  tinylfu        | 47.39%  | 0.11MiB | 1983602 | 3554428 | 3945572  
-  slru           | 46.48%  | 0.11MiB | 1948558 | 3486176 | 4013824  
-  s4lru          | 46.15%  | 0.12MiB | 2417016 | 3461316 | 4038684  
-  two-queue      | 45.49%  | 0.17MiB | 1863817 | 3411840 | 4088160  
-  clock          | 37.33%  | 0.10MiB | 1927525 | 2800086 | 4699914  
-  lru-groupcache | 36.57%  | 0.11MiB | 1898254 | 2742607 | 4757393  
-  lru-hashicorp  | 36.56%  | 0.08MiB | 2072396 | 2741646 | 4758354 
+  sieve          | 47.66%  | 0.09MiB | 2508361 | 3574212 | 3925788
+  tinylfu        | 47.37%  | 0.11MiB | 2269542 | 3552921 | 3947079
+  s3-fifo        | 47.17%  | 0.18MiB | 1651619 | 3538121 | 3961879
+  slru           | 46.49%  | 0.11MiB | 2201350 | 3486476 | 4013524
+  s4lru          | 46.09%  | 0.12MiB | 2484266 | 3456682 | 4043318
+  two-queue      | 45.49%  | 0.17MiB | 1713502 | 3411800 | 4088200
+  clock          | 37.34%  | 0.10MiB | 2370417 | 2800750 | 4699250
+  lru-groupcache | 36.59%  | 0.11MiB | 2206841 | 2743894 | 4756106
+  lru-hashicorp  | 36.57%  | 0.08MiB | 2055358 | 2743000 | 4757000
 ```
 
 **SIEVE** delivers both high hit rates and the highest QPS(queries per seconds) compared to other LRU-based caches. 
