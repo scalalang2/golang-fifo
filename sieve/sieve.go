@@ -1,8 +1,10 @@
-package fifo
+package sieve
 
 import (
 	"container/list"
 	"sync"
+
+	"github.com/scalalang2/golang-fifo"
 )
 
 type entry[K comparable, V any] struct {
@@ -19,7 +21,7 @@ type Sieve[K comparable, V any] struct {
 	hand  *list.Element
 }
 
-func NewSieve[K comparable, V any](size int) Cache[K, V] {
+func NewSieve[K comparable, V any](size int) fifo.Cache[K, V] {
 	return &Sieve[K, V]{
 		size:  size,
 		items: make(map[K]*list.Element),

@@ -1,4 +1,4 @@
-package fifo
+package s3fifo
 
 // ringBuf is a non thread-safe ring buffer implementation.
 type ringBuf[K comparable] struct {

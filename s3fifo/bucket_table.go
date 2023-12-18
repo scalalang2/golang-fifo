@@ -1,4 +1,4 @@
-package fifo
+package s3fifo
 
 import "container/list"
 

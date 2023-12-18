@@ -1,8 +1,10 @@
-package fifo
+package s3fifo
 
 import (
 	"fmt"
 	"sync"
+
+	"github.com/scalalang2/golang-fifo"
 )
 
 type s3fifoEntry[V any] struct {
@@ -23,7 +25,7 @@ type S3FIFO[K comparable, V any] struct {
 	ghost *bucketTable[K]
 }
 
-func NewS3FIFO[K comparable, V any](size int) Cache[K, V] {
+func NewS3FIFO[K comparable, V any](size int) fifo.Cache[K, V] {
 	return &S3FIFO[K, V]{
 		size:  size,
 		items: make(map[K]*s3fifoEntry[V]),
