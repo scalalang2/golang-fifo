@@ -10,6 +10,18 @@ This is a modern cache implementation, **inspired** by the following papers, pro
 
 This offers state-of-the-art efficiency and scalability compared to other LRU-based cache algorithms.
 
+## Basic Usage
+```go
+import "github.com/scalalang2/golang-fifo/sieve"
+
+size := 1e5
+cache := sieve.New[string, string](size)
+
+cache.Set("hello", "world")
+val, _ := cache.Get("hello") 
+fmt.Printf("value: %s", val) // => "world"
+```
+
 ## Benchmark Result
 The benchmark result were obtained using [go-cache-benchmark](https://github.com/scalalang2/go-cache-benchmark)
 
@@ -39,18 +51,6 @@ While LRU promotes accessed objects to the head of the queue,
 requiring a potentially slow lock acquisition, 
 SIEVE only needs to update a single bit upon a cache hit. 
 This update can be done with a significantly faster reader lock, leading to increased performance.
-
-## Usage
-```go
-import "github.com/scalalang2/golang-fifo/v2"
-
-size := 1e5
-cache := fifo.NewSieve[string, string](size)
-
-cache.Set("hello", "world")
-val, _ := cache.Get("hello") 
-fmt.Printf("value: %s", val) // => "world"
-```
 
 ## Apendix
 

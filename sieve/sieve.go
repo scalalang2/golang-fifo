@@ -21,7 +21,7 @@ type Sieve[K comparable, V any] struct {
 	hand  *list.Element
 }
 
-func NewSieve[K comparable, V any](size int) fifo.Cache[K, V] {
+func New[K comparable, V any](size int) fifo.Cache[K, V] {
 	return &Sieve[K, V]{
 		size:  size,
 		items: make(map[K]*list.Element),

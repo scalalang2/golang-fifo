@@ -8,7 +8,7 @@ import (
 
 func TestGetAndSetOnSieve(t *testing.T) {
 	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	cache := NewSieve[int, int](10)
+	cache := New[int, int](10)
 
 	for _, v := range items {
 		cache.Set(v, v*10)
@@ -22,7 +22,7 @@ func TestGetAndSetOnSieve(t *testing.T) {
 }
 
 func TestContainsOnSieve(t *testing.T) {
-	cache := NewSieve[string, string](10)
+	cache := New[string, string](10)
 	require.False(t, cache.Contains("hello"))
 
 	cache.Set("hello", "world")
@@ -30,7 +30,7 @@ func TestContainsOnSieve(t *testing.T) {
 }
 
 func TestLenOnSieve(t *testing.T) {
-	cache := NewSieve[int, int](10)
+	cache := New[int, int](10)
 	require.Equal(t, 0, cache.Len())
 
 	cache.Set(1, 1)

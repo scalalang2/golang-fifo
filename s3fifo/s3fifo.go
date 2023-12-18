@@ -25,7 +25,7 @@ type S3FIFO[K comparable, V any] struct {
 	ghost *bucketTable[K]
 }
 
-func NewS3FIFO[K comparable, V any](size int) fifo.Cache[K, V] {
+func New[K comparable, V any](size int) fifo.Cache[K, V] {
 	return &S3FIFO[K, V]{
 		size:  size,
 		items: make(map[K]*s3fifoEntry[V]),

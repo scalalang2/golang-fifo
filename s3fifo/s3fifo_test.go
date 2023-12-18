@@ -7,7 +7,7 @@ import (
 )
 
 func TestSetAndGetOnCache(t *testing.T) {
-	cache := NewS3FIFO[string, string](10)
+	cache := New[string, string](10)
 	cache.Set("hello", "world")
 
 	value, ok := cache.Get("hello")
@@ -16,7 +16,7 @@ func TestSetAndGetOnCache(t *testing.T) {
 }
 
 func TestEvictOneHitWonders(t *testing.T) {
-	cache := NewS3FIFO[int, int](10)
+	cache := New[int, int](10)
 	oneHitWonders := []int{1, 2}
 	popularObjects := []int{3, 4, 5, 6, 7, 8, 9, 10}
 
@@ -61,7 +61,7 @@ func TestEvictOneHitWonders(t *testing.T) {
 }
 
 func TestPeekOnCache(t *testing.T) {
-	cache := NewS3FIFO[int, int](5)
+	cache := New[int, int](5)
 	entries := []int{1, 2, 3, 4, 5}
 
 	for _, v := range entries {
@@ -93,7 +93,7 @@ func TestPeekOnCache(t *testing.T) {
 }
 
 func TestContainsOnCache(t *testing.T) {
-	cache := NewS3FIFO[int, int](5)
+	cache := New[int, int](5)
 	entries := []int{1, 2, 3, 4, 5}
 
 	for _, v := range entries {
@@ -111,7 +111,7 @@ func TestContainsOnCache(t *testing.T) {
 }
 
 func TestLengthOnCache(t *testing.T) {
-	cache := NewS3FIFO[string, string](10)
+	cache := New[string, string](10)
 
 	cache.Set("hello", "world")
 	require.Equal(t, 1, cache.Len())
@@ -126,7 +126,7 @@ func TestLengthOnCache(t *testing.T) {
 }
 
 func TestCleanOnCache(t *testing.T) {
-	cache := NewS3FIFO[int, int](10)
+	cache := New[int, int](10)
 	entries := []int{1, 2, 3, 4, 5}
 
 	for _, v := range entries {
