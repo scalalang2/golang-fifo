@@ -7,7 +7,7 @@ import (
 	"github.com/scalalang2/golang-fifo"
 )
 
-type s3fifoEntry[V any] struct {
+type entry[V any] struct {
 	value V
 	freq  byte
 }
@@ -19,7 +19,7 @@ type S3FIFO[K comparable, V any] struct {
 	size int
 
 	// followings are the fundamental data structures of S3FIFO algorithm.
-	items map[K]*s3fifoEntry[V]
+	items map[K]*entry[V]
 	small *ringBuf[K]
 	main  *ringBuf[K]
 	ghost *bucketTable[K]
@@ -28,7 +28,7 @@ type S3FIFO[K comparable, V any] struct {
 func New[K comparable, V any](size int) fifo.Cache[K, V] {
 	return &S3FIFO[K, V]{
 		size:  size,
-		items: make(map[K]*s3fifoEntry[V]),
+		items: make(map[K]*entry[V]),
 		small: newRingBuf[K](size),
 		main:  newRingBuf[K](size),
 		ghost: newBucketTable[K](size),
@@ -60,7 +60,7 @@ func (s *S3FIFO[K, V]) Set(key K, value V) {
 		}
 	}
 
-	ent := &s3fifoEntry[V]{value: value, freq: 0}
+	ent := &entry[V]{value: value, freq: 0}
 	s.items[key] = ent
 }
 
@@ -106,7 +106,7 @@ func (s *S3FIFO[K, V]) Clean() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.items = make(map[K]*s3fifoEntry[V])
+	s.items = make(map[K]*entry[V])
 	s.small = newRingBuf[K](s.size)
 	s.main = newRingBuf[K](s.size)
 	s.ghost = newBucketTable[K](s.size)

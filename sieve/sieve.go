@@ -7,6 +7,7 @@ import (
 	"github.com/scalalang2/golang-fifo"
 )
 
+// entry holds the key and value of a cache entry.
 type entry[K comparable, V any] struct {
 	key     K
 	value   V
