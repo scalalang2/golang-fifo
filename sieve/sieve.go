@@ -83,7 +83,7 @@ func (s *Sieve[K, V]) Len() int {
 	return s.ll.Len()
 }
 
-func (s *Sieve[K, V]) Clean() {
+func (s *Sieve[K, V]) Purge() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 

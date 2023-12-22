@@ -17,6 +17,6 @@ type Cache[K comparable, V any] interface {
 	// Len returns the number of entries in the cache.
 	Len() int
 
-	// Clean clears all cache entries
-	Clean()
+	// Purge clears all cache entries
+	Purge()
 }

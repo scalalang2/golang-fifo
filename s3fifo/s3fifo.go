@@ -102,7 +102,7 @@ func (s *S3FIFO[K, V]) Len() int {
 	return s.small.length() + s.main.length()
 }
 
-func (s *S3FIFO[K, V]) Clean() {
+func (s *S3FIFO[K, V]) Purge() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
