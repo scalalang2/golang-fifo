@@ -133,7 +133,7 @@ func TestCleanOnCache(t *testing.T) {
 		cache.Set(v, v*10)
 	}
 	require.Equal(t, 5, cache.Len())
-	cache.Clean()
+	cache.Purge()
 
 	// check if each entry exists in the cache
 	for _, v := range entries {
