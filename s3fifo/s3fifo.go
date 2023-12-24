@@ -134,8 +134,8 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 		key := el.Value.(*entry[K, V]).key
 		if el.Value.(*entry[K, V]).freq > 1 {
 			// move the entry from the small queue to the main queue
-			s.small.Remove(el)
 			s.items[key] = s.main.PushFront(el.Value)
+			s.small.Remove(el)
 
 			if s.main.Len() > mainCacheSize {
 				s.evictFromMain()
@@ -155,9 +155,10 @@ func (s *S3FIFO[K, V]) evictFromMain() {
 		el := s.main.Back()
 		key := el.Value.(*entry[K, V]).key
 		if el.Value.(*entry[K, V]).freq > 0 {
+			ent := el.Value.(*entry[K, V])
+			ent.freq -= 1
+			s.items[key] = s.main.PushFront(ent)
 			s.main.Remove(el)
-			s.items[key] = s.main.PushFront(el.Value)
-			el.Value.(*entry[K, V]).freq -= 1
 		} else {
 			s.main.Remove(el)
 			evicted = true
