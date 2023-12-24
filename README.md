@@ -64,7 +64,7 @@ This update can be done with a significantly faster reader lock, leading to incr
 </details>
 
 <details>
-<summary>Things to consider before using `golang-fifo`</summary>
+<summary>Things to consider before adoption</summary>
 
 - Both **S3-FIFO** and **SIEVE** have a O(n) time complexity for cache eviction,
   which only occurs when all objects are hit the cache, which means that there is a perfect (100%) hit rate in the cache.
@@ -72,8 +72,9 @@ This update can be done with a significantly faster reader lock, leading to incr
   which typically follow a power-law distribution.
 - **S3-FIFO** filters out one-hit-wonders early, It bears some resemblance to designing scan-resistant cache eviction algorithms.
 - **SIEVE** scales well for read-intensive applications such as blogs and online shops, because it doesn't require to hold a writer lock on cache hit.
-- The `golang-fifo` library aims to provide a straightforward and efficient cache implementation, similar to hashicorp-lru and groupcache.
-  Its goal is not to outperform highly specialized in-memory cache libraries (e.g. bigcache, freecache and etc).
+- The `golang-fifo` library aims to provide a straightforward and efficient cache implementation, 
+  similar to [hashicorp-lru](https://github.com/hashicorp/golang-lru) and [groupcache](https://github.com/golang/groupcache).
+  Its goal is not to outperform highly specialized in-memory cache libraries (e.g. [bigcache](https://github.com/allegro/bigcache), [freecache](https://github.com/coocood/freecache) and etc).
 </details>
 
 <details>
