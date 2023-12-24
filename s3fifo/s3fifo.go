@@ -1,13 +1,14 @@
 package s3fifo
 
 import (
-	"fmt"
+	"container/list"
 	"sync"
 
 	"github.com/scalalang2/golang-fifo"
 )
 
-type entry[V any] struct {
+type entry[K comparable, V any] struct {
+	key   K
 	value V
 	freq  byte
 }
@@ -19,18 +20,18 @@ type S3FIFO[K comparable, V any] struct {
 	size int
 
 	// followings are the fundamental data structures of S3FIFO algorithm.
-	items map[K]*entry[V]
-	small *ringBuf[K]
-	main  *ringBuf[K]
+	items map[K]*list.Element
+	small *list.List
+	main  *list.List
 	ghost *bucketTable[K]
 }
 
 func New[K comparable, V any](size int) fifo.Cache[K, V] {
 	return &S3FIFO[K, V]{
 		size:  size,
-		items: make(map[K]*entry[V]),
-		small: newRingBuf[K](size),
-		main:  newRingBuf[K](size),
+		items: make(map[K]*list.Element),
+		small: list.New(),
+		main:  list.New(),
 		ghost: newBucketTable[K](size),
 	}
 }
@@ -40,28 +41,29 @@ func (s *S3FIFO[K, V]) Set(key K, value V) {
 	defer s.lock.Unlock()
 
 	if _, ok := s.items[key]; ok {
-		s.items[key].value = value
-		s.items[key].freq = min(s.items[key].freq+1, 3)
+		el := s.items[key].Value.(*entry[K, V])
+		el.value = value
+		el.freq = min(el.freq+1, 3)
 		return
 	}
 
-	for s.small.length()+s.main.length() >= s.size {
+	for s.small.Len()+s.main.Len() >= s.size {
 		s.evict()
+	}
+
+	// create a new entry to append it to the cache.
+	ent := &entry[K, V]{
+		key:   key,
+		value: value,
+		freq:  0,
 	}
 
 	if s.ghost.contains(key) {
 		s.ghost.remove(key)
-		if ok := s.main.push(key); !ok {
-			panic("main ring buffer is full, this is unexpected bug")
-		}
+		s.items[key] = s.main.PushFront(ent)
 	} else {
-		if ok := s.small.push(key); !ok {
-			panic(fmt.Errorf("small ring buffer is full, this is unexpected bug, len:%d, cap: %d", s.small.length(), s.small.capacity()))
-		}
+		s.items[key] = s.small.PushFront(ent)
 	}
-
-	ent := &entry[V]{value: value, freq: 0}
-	s.items[key] = ent
 }
 
 func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
@@ -72,9 +74,10 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 		return value, false
 	}
 
-	s.items[key].freq = min(s.items[key].freq+1, 3)
+	ent := s.items[key].Value.(*entry[K, V])
+	ent.freq = min(ent.freq+1, 3)
 	s.ghost.remove(key)
-	return s.items[key].value, true
+	return ent.value, true
 }
 
 func (s *S3FIFO[K, V]) Contains(key K) (ok bool) {
@@ -95,42 +98,50 @@ func (s *S3FIFO[K, V]) Peek(key K) (value V, ok bool) {
 	if !ok {
 		return value, false
 	}
-	return ent.value, ok
+	return ent.Value.(*entry[K, V]).value, ok
 }
 
 func (s *S3FIFO[K, V]) Len() int {
-	return s.small.length() + s.main.length()
+	return s.small.Len() + s.main.Len()
 }
 
 func (s *S3FIFO[K, V]) Purge() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.items = make(map[K]*entry[V])
-	s.small = newRingBuf[K](s.size)
-	s.main = newRingBuf[K](s.size)
+	s.items = make(map[K]*list.Element)
+	s.small = list.New()
+	s.main = list.New()
 	s.ghost = newBucketTable[K](s.size)
 }
 
 func (s *S3FIFO[K, V]) evict() {
-	mainCacheSize := s.size / 10 * 9
-	if s.main.length() > mainCacheSize || s.small.length() == 0 {
-		s.evictFromMain()
+	// if size of the small queue is greater than 10% of the total cache size.
+	// then, evict from the small queue
+	if s.small.Len() > s.size/10 {
+		s.evictFromSmall()
 		return
 	}
-	s.evictFromSmall()
+	s.evictFromMain()
 }
 
 func (s *S3FIFO[K, V]) evictFromSmall() {
+	mainCacheSize := s.size / 10 * 9
+
 	evicted := false
-	for !evicted && !s.small.isEmpty() {
-		key := s.small.pop()
-		if s.items[key].freq > 1 {
-			s.main.push(key)
-			if s.main.isFull() {
+	for !evicted && s.small.Len() > 0 {
+		el := s.small.Back()
+		key := el.Value.(*entry[K, V]).key
+		if el.Value.(*entry[K, V]).freq > 1 {
+			// move the entry from the small queue to the main queue
+			s.small.Remove(el)
+			s.items[key] = s.main.PushFront(el.Value)
+
+			if s.main.Len() > mainCacheSize {
 				s.evictFromMain()
 			}
 		} else {
+			s.small.Remove(el)
 			s.ghost.add(key)
 			evicted = true
 			delete(s.items, key)
@@ -140,12 +151,15 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 
 func (s *S3FIFO[K, V]) evictFromMain() {
 	evicted := false
-	for !evicted && !s.main.isEmpty() {
-		key := s.main.pop()
-		if s.items[key].freq > 0 {
-			s.main.push(key)
-			s.items[key].freq--
+	for !evicted && s.main.Len() > 0 {
+		el := s.main.Back()
+		key := el.Value.(*entry[K, V]).key
+		if el.Value.(*entry[K, V]).freq > 0 {
+			s.main.Remove(el)
+			s.items[key] = s.main.PushFront(el.Value)
+			el.Value.(*entry[K, V]).freq -= 1
 		} else {
+			s.main.Remove(el)
 			evicted = true
 			delete(s.items, key)
 		}
