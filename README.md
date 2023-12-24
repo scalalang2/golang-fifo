@@ -56,7 +56,7 @@ This update can be done with a significantly faster reader lock, leading to incr
 - Both **S3-FIFO** and **SIEVE** have a O(n) time complexity for cache eviction,
   which only occurs when all objects are hit the cache, which means that there is a perfect (100%) hit rate in the cache.
 - **SIEVE** is not designed to be scan-resistant. Therefore, it's currently recommended for web cache workloads, 
-  which typically follow a power-law distribution,
+  which typically follow a power-law distribution.
 - **S3-FIFO** filters out one-hit-wonders early, It bears some resemblance to designing scan-resistant cache eviction algorithms.
 - **SIEVE** scales well for read-intensive applications such as blogs and online shops, because it doesn't require to hold a writer lock on cache hit.
 - The `golang-fifo` library aims to provide a straightforward and efficient cache implementation, similar to hashicorp-lru and groupcache. 
