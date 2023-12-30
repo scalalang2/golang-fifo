@@ -2,12 +2,11 @@ name: build
 
 on:
   push:
-    branches:
-    tags:
+    branches: [main]
   pull_request:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
