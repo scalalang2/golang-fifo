@@ -21,6 +21,23 @@ func TestGetAndSetOnSieve(t *testing.T) {
 	}
 }
 
+func TestRemoveOnSieve(t *testing.T) {
+	cache := New[int, int](10)
+	cache.Set(1, 10)
+
+	val, ok := cache.Get(1)
+	require.True(t, ok)
+	require.Equal(t, 10, val)
+
+	// After removing the key, it should not be found
+	cache.Remove(1)
+	_, ok = cache.Get(1)
+	require.False(t, ok)
+
+	// This should not panic
+	cache.Remove(-1)
+}
+
 func TestContainsOnSieve(t *testing.T) {
 	cache := New[string, string](10)
 	require.False(t, cache.Contains("hello"))

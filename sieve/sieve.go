@@ -58,6 +58,21 @@ func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
 	return
 }
 
+func (s *Sieve[K, V]) Remove(key K) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if e, ok := s.items[key]; ok {
+		// if the element to be removed is the hand,
+		// then move the hand to the previous one.
+		if e == s.hand {
+			s.hand = s.hand.Prev()
+		}
+		s.ll.Remove(e)
+		delete(s.items, key)
+	}
+}
+
 func (s *Sieve[K, V]) Contains(key K) (ok bool) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
