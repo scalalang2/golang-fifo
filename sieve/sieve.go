@@ -58,7 +58,7 @@ func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
 	return
 }
 
-func (s *Sieve[K, V]) Remove(key K) {
+func (s *Sieve[K, V]) Remove(key K) (ok bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -70,7 +70,11 @@ func (s *Sieve[K, V]) Remove(key K) {
 		}
 		s.ll.Remove(e)
 		delete(s.items, key)
+
+		return true
 	}
+
+	return false
 }
 
 func (s *Sieve[K, V]) Contains(key K) (ok bool) {

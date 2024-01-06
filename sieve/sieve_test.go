@@ -30,12 +30,15 @@ func TestRemoveOnSieve(t *testing.T) {
 	require.Equal(t, 10, val)
 
 	// After removing the key, it should not be found
-	cache.Remove(1)
+	removed := cache.Remove(1)
+	require.True(t, removed)
+
 	_, ok = cache.Get(1)
 	require.False(t, ok)
 
 	// This should not panic
-	cache.Remove(-1)
+	removed = cache.Remove(-1)
+	require.False(t, removed)
 }
 
 func TestContainsOnSieve(t *testing.T) {

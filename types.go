@@ -9,7 +9,7 @@ type Cache[K comparable, V any] interface {
 	Get(key K) (value V, ok bool)
 
 	// Remove removes the provided key from the cache.
-	Remove(key K)
+	Remove(key K) (ok bool)
 
 	// Contains check if a key exists in cache without updating the recent-ness
 	Contains(key K) (ok bool)

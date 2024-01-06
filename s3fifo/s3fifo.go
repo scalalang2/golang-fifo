@@ -80,7 +80,7 @@ func (s *S3FIFO[K, V]) Get(key K) (value V, ok bool) {
 	return ent.value, true
 }
 
-func (s *S3FIFO[K, V]) Remove(key K) {
+func (s *S3FIFO[K, V]) Remove(key K) (ok bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -92,7 +92,11 @@ func (s *S3FIFO[K, V]) Remove(key K) {
 		s.main.Remove(e)
 		s.small.Remove(e)
 		delete(s.items, key)
+
+		return true
 	}
+
+	return false
 }
 
 func (s *S3FIFO[K, V]) Contains(key K) (ok bool) {
