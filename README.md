@@ -35,7 +35,10 @@ for i := 0; i < 10; i++ {
 fmt.Printf("len: %d", cache.Len()) // => 11
 
 // remove value under hello
-cache.Remove("hello")
+removed := cache.Remove("hello")
+if removed {
+	fmt.Println("hello was removed")
+}
 ```
 
 ## Benchmark Result
