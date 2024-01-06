@@ -15,6 +15,23 @@ func TestSetAndGetOnCache(t *testing.T) {
 	require.Equal(t, "world", value)
 }
 
+func TestRemoveOnCache(t *testing.T) {
+	cache := New[int, int](10)
+	cache.Set(1, 10)
+
+	val, ok := cache.Get(1)
+	require.True(t, ok)
+	require.Equal(t, 10, val)
+
+	// After removing the key, it should not be found
+	cache.Remove(1)
+	_, ok = cache.Get(1)
+	require.False(t, ok)
+
+	// This should not panic
+	cache.Remove(-1)
+}
+
 func TestEvictOneHitWonders(t *testing.T) {
 	cache := New[int, int](10)
 	oneHitWonders := []int{1, 2}
