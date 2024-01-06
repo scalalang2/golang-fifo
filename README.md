@@ -17,9 +17,25 @@ import "github.com/scalalang2/golang-fifo/sieve"
 size := 1e5
 cache := sieve.New[string, string](size)
 
+// set value under hello
 cache.Set("hello", "world")
-val, _ := cache.Get("hello") 
-fmt.Printf("value: %s", val) // => "world"
+
+// get value under hello
+val, ok := cache.Get("hello")
+if ok {
+    fmt.Printf("value: %s", val) // => "world"
+}
+
+// set more keys
+for i := 0; i < 10; i++ {
+    cache.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
+}
+
+// get number of cache entries
+fmt.Printf("len: %d", cache.Len()) // => 11
+
+// remove value under hello
+cache.Remove("hello")
 ```
 
 ## Benchmark Result
