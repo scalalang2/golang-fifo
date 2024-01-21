@@ -16,3 +16,4 @@ This release will include the following changes:
 ### IMPROVEMENTS
 
 ### BUG FIXES
+- Fix a race condition issue in the SIEVE cache. [\#23](https://github.com/scalalang2/golang-fifo/pull/23) by @scalalang2

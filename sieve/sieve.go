@@ -15,7 +15,7 @@ type entry[K comparable, V any] struct {
 }
 
 type Sieve[K comparable, V any] struct {
-	lock  sync.RWMutex
+	lock  sync.Mutex
 	size  int
 	items map[K]*list.Element
 	ll    *list.List
@@ -48,8 +48,8 @@ func (s *Sieve[K, V]) Set(key K, value V) {
 }
 
 func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if e, ok := s.items[key]; ok {
 		e.Value.(*entry[K, V]).visited = true
 		return e.Value.(*entry[K, V]).value, true
@@ -78,15 +78,15 @@ func (s *Sieve[K, V]) Remove(key K) (ok bool) {
 }
 
 func (s *Sieve[K, V]) Contains(key K) (ok bool) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	_, ok = s.items[key]
 	return
 }
 
 func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	if e, ok := s.items[key]; ok {
 		return e.Value.(*entry[K, V]).value, true
@@ -96,8 +96,8 @@ func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
 }
 
 func (s *Sieve[K, V]) Len() int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	return s.ll.Len()
 }
