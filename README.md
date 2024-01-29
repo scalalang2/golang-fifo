@@ -1,7 +1,7 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/scalalang2/golang-fifo)](https://goreportcard.com/report/github.com/scalalang2/golang-fifo)
+![MIT License](https://img.shields.io/badge/license-MIT-_red.svg)
+
 <h1 align="center">golang-fifo</h1>
-<p align="center">
-    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-_red.svg"></a>
-</p>
 
 This is a modern cache implementation, **inspired** by the following papers, provides high efficiency.
 

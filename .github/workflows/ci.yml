@@ -6,9 +6,30 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
+  test:
+    name: Test with Coverage
     runs-on: ubuntu-latest
-
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21.x'
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          go mod download
+      - name: Run Unit tests
+        run: |
+          go test -race -covermode atomic -coverprofile=covprofile ./...
+      - name: Install goveralls
+        run: go install github.com/mattn/goveralls@latest
+      - name: Send coverage
+        env:
+          COVERALLS_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: goveralls -coverprofile=covprofile -service=github
+  build:
+    runs-on: ubuntu-latest
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -18,5 +39,3 @@ jobs:
           go-version: '1.21.x'
       - name: Build
         run: go build -v ./...
-      - name: Test
-        run: go test -v ./...
