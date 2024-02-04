@@ -1,5 +1,7 @@
 package fifo
 
+type OnEvictCallback[K comparable, V any] func(key K, value V)
+
 // Cache is the interface for a cache.
 type Cache[K comparable, V any] interface {
 	// Set sets the value for the given key on cache.
@@ -16,6 +18,12 @@ type Cache[K comparable, V any] interface {
 
 	// Peek returns key's value without updating the recent-ness.
 	Peek(key K) (value V, ok bool)
+
+	// SetTimeToLive sets the lifetime of the cache entry.
+	SetTimeToLive(ttl int64)
+
+	// SetOnEvict sets the callback function that will be called when an entry is evicted from the cache.
+	SetOnEvict(callback OnEvictCallback[K, V])
 
 	// Len returns the number of entries in the cache.
 	Len() int

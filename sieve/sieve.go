@@ -3,6 +3,7 @@ package sieve
 import (
 	"container/list"
 	"sync"
+	"time"
 
 	"github.com/scalalang2/golang-fifo"
 )
@@ -12,14 +13,17 @@ type entry[K comparable, V any] struct {
 	key     K
 	value   V
 	visited bool
+	expire  int64
 }
 
 type Sieve[K comparable, V any] struct {
-	lock  sync.Mutex
+	mu    sync.Mutex
 	size  int
 	items map[K]*list.Element
 	ll    *list.List
 	hand  *list.Element
+
+	ttl time.Duration
 }
 
 func New[K comparable, V any](size int) fifo.Cache[K, V] {
@@ -31,8 +35,8 @@ func New[K comparable, V any](size int) fifo.Cache[K, V] {
 }
 
 func (s *Sieve[K, V]) Set(key K, value V) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if e, ok := s.items[key]; ok {
 		e.Value.(*entry[K, V]).value = value
@@ -48,8 +52,8 @@ func (s *Sieve[K, V]) Set(key K, value V) {
 }
 
 func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if e, ok := s.items[key]; ok {
 		e.Value.(*entry[K, V]).visited = true
 		return e.Value.(*entry[K, V]).value, true
@@ -59,8 +63,8 @@ func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
 }
 
 func (s *Sieve[K, V]) Remove(key K) (ok bool) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if e, ok := s.items[key]; ok {
 		// if the element to be removed is the hand,
@@ -78,15 +82,15 @@ func (s *Sieve[K, V]) Remove(key K) (ok bool) {
 }
 
 func (s *Sieve[K, V]) Contains(key K) (ok bool) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	_, ok = s.items[key]
 	return
 }
 
 func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if e, ok := s.items[key]; ok {
 		return e.Value.(*entry[K, V]).value, true
@@ -96,15 +100,15 @@ func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
 }
 
 func (s *Sieve[K, V]) Len() int {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	return s.ll.Len()
 }
 
 func (s *Sieve[K, V]) Purge() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	s.items = make(map[K]*list.Element)
 	s.ll = list.New()
