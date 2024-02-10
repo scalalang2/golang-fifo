@@ -1,4 +1,4 @@
-package fifo
+package types
 
 type OnEvictCallback[K comparable, V any] func(key K, value V)
 
@@ -19,9 +19,6 @@ type Cache[K comparable, V any] interface {
 	// Peek returns key's value without updating the recent-ness.
 	Peek(key K) (value V, ok bool)
 
-	// SetTimeToLive sets the lifetime of the cache entry.
-	SetTimeToLive(ttl int64)
-
 	// SetOnEvict sets the callback function that will be called when an entry is evicted from the cache.
 	SetOnEvict(callback OnEvictCallback[K, V])
 
@@ -30,4 +27,7 @@ type Cache[K comparable, V any] interface {
 
 	// Purge clears all cache entries
 	Purge()
+
+	// Close closes the cache and releases any resources associated with it.
+	Close()
 }

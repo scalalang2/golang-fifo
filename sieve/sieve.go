@@ -2,36 +2,92 @@ package sieve
 
 import (
 	"container/list"
+	"context"
+	"github.com/scalalang2/golang-fifo/types"
 	"sync"
 	"time"
-
-	"github.com/scalalang2/golang-fifo"
 )
+
+const numberOfBuckets = 100
 
 // entry holds the key and value of a cache entry.
 type entry[K comparable, V any] struct {
-	key     K
-	value   V
-	visited bool
-	expire  int64
+	key       K
+	value     V
+	visited   bool
+	element   *list.Element
+	expiredAt time.Time
+	bucketID  int8 // bucketID is an index which the entry is stored in the bucket
+}
+
+// bucket is a container holding entries to be expired
+type bucket[K comparable, V any] struct {
+	entries     map[K]*entry[K, V]
+	newestEntry time.Time
 }
 
 type Sieve[K comparable, V any] struct {
-	mu    sync.Mutex
-	size  int
-	items map[K]*list.Element
-	ll    *list.List
-	hand  *list.Element
+	ctx    context.Context
+	cancel context.CancelFunc
+	mu     sync.Mutex
+	size   int
+	items  map[K]*entry[K, V]
+	ll     *list.List
+	hand   *list.Element
 
-	ttl time.Duration
+	buckets []bucket[K, V]
+
+	// ttl is the time to live of the cache entry
+	ttl        time.Duration
+	ttlEnabled bool
+
+	// nextCleanupBucket is an index of the next bucket to be cleaned up
+	nextCleanupBucket int8
+
+	// callback is the function that will be called when an entry is evicted from the cache
+	callback types.OnEvictCallback[K, V]
 }
 
-func New[K comparable, V any](size int) fifo.Cache[K, V] {
-	return &Sieve[K, V]{
-		size:  size,
-		items: make(map[K]*list.Element),
-		ll:    list.New(),
+var _ types.Cache[int, int] = (*Sieve[int, int])(nil)
+
+func New[K comparable, V any](size int, ttl time.Duration) *Sieve[K, V] {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	if ttl <= 0 {
+		ttl = 0
 	}
+
+	cache := &Sieve[K, V]{
+		ctx:               ctx,
+		cancel:            cancel,
+		size:              size,
+		items:             make(map[K]*entry[K, V]),
+		ll:                list.New(),
+		buckets:           make([]bucket[K, V], numberOfBuckets),
+		ttl:               ttl,
+		nextCleanupBucket: 0,
+	}
+
+	for i := 0; i < numberOfBuckets; i++ {
+		cache.buckets[i].entries = make(map[K]*entry[K, V])
+	}
+
+	if ttl != 0 {
+		go func(ctx context.Context) {
+			ticker := time.NewTicker(ttl / numberOfBuckets)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					cache.deleteExpired()
+				}
+			}
+		}(cache.ctx)
+	}
+
+	return cache
 }
 
 func (s *Sieve[K, V]) Set(key K, value V) {
@@ -39,24 +95,34 @@ func (s *Sieve[K, V]) Set(key K, value V) {
 	defer s.mu.Unlock()
 
 	if e, ok := s.items[key]; ok {
-		e.Value.(*entry[K, V]).value = value
-		e.Value.(*entry[K, V]).visited = true
+		s.removeFromBucket(e) // remove from the bucket as the entry is updated
+		e.value = value
+		e.visited = true
+		e.expiredAt = time.Now().Add(s.ttl)
+		s.addToBucket(e)
 		return
 	}
 
 	if s.ll.Len() >= s.size {
 		s.evict()
 	}
-	e := &entry[K, V]{key: key, value: value}
-	s.items[key] = s.ll.PushFront(e)
+
+	e := &entry[K, V]{
+		key:       key,
+		value:     value,
+		element:   s.ll.PushFront(key),
+		expiredAt: time.Now().Add(s.ttl),
+	}
+	s.items[key] = e
+	s.addToBucket(e)
 }
 
 func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e, ok := s.items[key]; ok {
-		e.Value.(*entry[K, V]).visited = true
-		return e.Value.(*entry[K, V]).value, true
+		e.visited = true
+		return e.value, true
 	}
 
 	return
@@ -69,12 +135,11 @@ func (s *Sieve[K, V]) Remove(key K) (ok bool) {
 	if e, ok := s.items[key]; ok {
 		// if the element to be removed is the hand,
 		// then move the hand to the previous one.
-		if e == s.hand {
+		if e.element == s.hand {
 			s.hand = s.hand.Prev()
 		}
-		s.ll.Remove(e)
-		delete(s.items, key)
 
+		s.removeEntry(e)
 		return true
 	}
 
@@ -93,10 +158,17 @@ func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
 	defer s.mu.Unlock()
 
 	if e, ok := s.items[key]; ok {
-		return e.Value.(*entry[K, V]).value, true
+		return e.value, true
 	}
 
 	return
+}
+
+func (s *Sieve[K, V]) SetOnEvict(callback types.OnEvictCallback[K, V]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.callback = callback
 }
 
 func (s *Sieve[K, V]) Len() int {
@@ -110,8 +182,34 @@ func (s *Sieve[K, V]) Purge() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.items = make(map[K]*list.Element)
-	s.ll = list.New()
+	for _, e := range s.items {
+		s.removeEntry(e)
+	}
+
+	for i := range s.buckets {
+		for k := range s.buckets[i].entries {
+			delete(s.buckets[i].entries, k)
+		}
+	}
+
+	s.ll.Init()
+}
+
+func (s *Sieve[K, V]) Close() {
+	s.Purge()
+	s.mu.Lock()
+	s.cancel()
+	s.mu.Unlock()
+}
+
+func (s *Sieve[K, V]) removeEntry(e *entry[K, V]) {
+	if s.callback != nil {
+		s.callback(e.key, e.value)
+	}
+
+	s.ll.Remove(e.element)
+	s.removeFromBucket(e)
+	delete(s.items, e.key)
 }
 
 func (s *Sieve[K, V]) evict() {
@@ -121,15 +219,63 @@ func (s *Sieve[K, V]) evict() {
 		o = s.ll.Back()
 	}
 
-	for o.Value.(*entry[K, V]).visited {
-		o.Value.(*entry[K, V]).visited = false
+	el, ok := s.items[o.Value.(K)]
+	if !ok {
+		panic("sieve: evicting non-existent element")
+	}
+
+	for el.visited {
+		el.visited = false
 		o = o.Prev()
 		if o == nil {
 			o = s.ll.Back()
 		}
+
+		el, ok = s.items[o.Value.(K)]
+		if !ok {
+			panic("sieve: evicting non-existent element")
+		}
 	}
 
 	s.hand = o.Prev()
-	delete(s.items, o.Value.(*entry[K, V]).key)
-	s.ll.Remove(o)
+	s.removeEntry(el)
+}
+
+func (s *Sieve[K, V]) addToBucket(e *entry[K, V]) {
+	if s.ttl == 0 {
+		return
+	}
+	bucketId := (numberOfBuckets + s.nextCleanupBucket - 1) % numberOfBuckets
+	e.bucketID = bucketId
+	s.buckets[bucketId].entries[e.key] = e
+	if s.buckets[bucketId].newestEntry.Before(e.expiredAt) {
+		s.buckets[bucketId].newestEntry = e.expiredAt
+	}
+}
+
+func (s *Sieve[K, V]) removeFromBucket(e *entry[K, V]) {
+	if s.ttl == 0 {
+		return
+	}
+	delete(s.buckets[e.bucketID].entries, e.key)
+}
+
+func (s *Sieve[K, V]) deleteExpired() {
+	s.mu.Lock()
+
+	bucketId := s.nextCleanupBucket
+	s.nextCleanupBucket = (s.nextCleanupBucket + 1) % numberOfBuckets
+	bucket := &s.buckets[bucketId]
+	timeToExpire := time.Until(bucket.newestEntry)
+	if timeToExpire > 0 {
+		s.mu.Unlock()
+		time.Sleep(timeToExpire)
+		s.mu.Lock()
+	}
+
+	for _, e := range bucket.entries {
+		s.removeEntry(e)
+	}
+
+	s.mu.Unlock()
 }
