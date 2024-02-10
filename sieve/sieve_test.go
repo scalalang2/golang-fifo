@@ -1,6 +1,7 @@
 package sieve
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -166,10 +167,13 @@ func TestEvictionCallback(t *testing.T) {
 }
 
 func TestEvictionCallbackWithTTL(t *testing.T) {
+	var mu sync.Mutex
 	cache := New[int, int](10, time.Second)
 	evicted := make(map[int]int)
 	cache.SetOnEvict(func(key int, value int) {
+		mu.Lock()
 		evicted[key] = value
+		mu.Unlock()
 	})
 
 	// add objects to the cache
@@ -177,11 +181,21 @@ func TestEvictionCallbackWithTTL(t *testing.T) {
 		cache.Set(i, i)
 	}
 
-	// wait for the objects to be evicted
-	time.Sleep(time.Second * 2)
-
-	// check the callback received all the evicted objects
-	for i := 1; i <= 10; i++ {
-		require.Equal(t, i, evicted[i])
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	for {
+		select {
+		case <-timeout:
+			t.Fatal("timeout")
+		case <-ticker.C:
+			mu.Lock()
+			if len(evicted) == 10 {
+				for i := 1; i <= 10; i++ {
+					require.Equal(t, i, evicted[i])
+				}
+				return
+			}
+			mu.Unlock()
+		}
 	}
 }
