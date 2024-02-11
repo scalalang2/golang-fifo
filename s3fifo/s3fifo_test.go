@@ -1,13 +1,17 @@
 package s3fifo
 
 import (
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestSetAndGetOnCache(t *testing.T) {
-	cache := New[string, string](10)
+const noEvictionTTL = 0
+
+func TestSetAndGet(t *testing.T) {
+	cache := New[string, string](10, noEvictionTTL)
 	cache.Set("hello", "world")
 
 	value, ok := cache.Get("hello")
@@ -15,8 +19,8 @@ func TestSetAndGetOnCache(t *testing.T) {
 	require.Equal(t, "world", value)
 }
 
-func TestRemoveOnCache(t *testing.T) {
-	cache := New[int, int](10)
+func TestRemove(t *testing.T) {
+	cache := New[int, int](10, noEvictionTTL)
 	cache.Set(1, 10)
 
 	val, ok := cache.Get(1)
@@ -36,7 +40,7 @@ func TestRemoveOnCache(t *testing.T) {
 }
 
 func TestEvictOneHitWonders(t *testing.T) {
-	cache := New[int, int](10)
+	cache := New[int, int](10, noEvictionTTL)
 	oneHitWonders := []int{1, 2}
 	popularObjects := []int{3, 4, 5, 6, 7, 8, 9, 10}
 
@@ -80,8 +84,8 @@ func TestEvictOneHitWonders(t *testing.T) {
 	}
 }
 
-func TestPeekOnCache(t *testing.T) {
-	cache := New[int, int](5)
+func TestPeek(t *testing.T) {
+	cache := New[int, int](5, noEvictionTTL)
 	entries := []int{1, 2, 3, 4, 5}
 
 	for _, v := range entries {
@@ -112,8 +116,8 @@ func TestPeekOnCache(t *testing.T) {
 	}
 }
 
-func TestContainsOnCache(t *testing.T) {
-	cache := New[int, int](5)
+func TestContains(t *testing.T) {
+	cache := New[int, int](5, noEvictionTTL)
 	entries := []int{1, 2, 3, 4, 5}
 
 	for _, v := range entries {
@@ -130,8 +134,8 @@ func TestContainsOnCache(t *testing.T) {
 	}
 }
 
-func TestLengthOnCache(t *testing.T) {
-	cache := New[string, string](10)
+func TestLength(t *testing.T) {
+	cache := New[string, string](10, noEvictionTTL)
 
 	cache.Set("hello", "world")
 	require.Equal(t, 1, cache.Len())
@@ -145,8 +149,8 @@ func TestLengthOnCache(t *testing.T) {
 	require.Equal(t, "changed", value)
 }
 
-func TestCleanOnCache(t *testing.T) {
-	cache := New[int, int](10)
+func TestClean(t *testing.T) {
+	cache := New[int, int](10, noEvictionTTL)
 	entries := []int{1, 2, 3, 4, 5}
 
 	for _, v := range entries {
@@ -161,4 +165,83 @@ func TestCleanOnCache(t *testing.T) {
 		require.False(t, exist)
 	}
 	require.Equal(t, 0, cache.Len())
+}
+
+func TestTimeToLive(t *testing.T) {
+	ttl := time.Second
+	cache := New[int, int](10, ttl)
+	numberOfEntries := 10
+
+	for num := 1; num <= numberOfEntries; num++ {
+		cache.Set(num, num)
+		val, ok := cache.Get(num)
+		require.True(t, ok)
+		require.Equal(t, num, val)
+	}
+
+	time.Sleep(ttl * 2)
+
+	// check all entries are evicted
+	for num := 1; num <= numberOfEntries; num++ {
+		_, ok := cache.Get(num)
+		require.False(t, ok)
+	}
+}
+
+func TestEvictionCallback(t *testing.T) {
+	cache := New[int, int](10, noEvictionTTL)
+	evicted := make(map[int]int)
+
+	cache.SetOnEvict(func(key int, value int) {
+		evicted[key] = value
+	})
+
+	// add objects to the cache
+	for i := 1; i <= 10; i++ {
+		cache.Set(i, i)
+	}
+
+	// add another object to the cache
+	cache.Set(11, 11)
+
+	// check the first object is evicted
+	_, ok := cache.Get(1)
+	require.False(t, ok)
+	require.Equal(t, 1, evicted[1])
+
+	cache.Close()
+}
+
+func TestEvictionCallbackWithTTL(t *testing.T) {
+	var mu sync.Mutex
+	cache := New[int, int](10, time.Second)
+	evicted := make(map[int]int)
+	cache.SetOnEvict(func(key int, value int) {
+		mu.Lock()
+		evicted[key] = value
+		mu.Unlock()
+	})
+
+	// add objects to the cache
+	for i := 1; i <= 10; i++ {
+		cache.Set(i, i)
+	}
+
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	for {
+		select {
+		case <-timeout:
+			t.Fatal("timeout")
+		case <-ticker.C:
+			mu.Lock()
+			if len(evicted) == 10 {
+				for i := 1; i <= 10; i++ {
+					require.Equal(t, i, evicted[i])
+				}
+				return
+			}
+			mu.Unlock()
+		}
+	}
 }
