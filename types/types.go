@@ -19,8 +19,8 @@ type Cache[K comparable, V any] interface {
 	// Peek returns key's value without updating the recent-ness.
 	Peek(key K) (value V, ok bool)
 
-	// SetOnEvict sets the callback function that will be called when an entry is evicted from the cache.
-	SetOnEvict(callback OnEvictCallback[K, V])
+	// SetOnEvicted sets the callback function that will be called when an entry is evicted from the cache.
+	SetOnEvicted(callback OnEvictCallback[K, V])
 
 	// Len returns the number of entries in the cache.
 	Len() int
