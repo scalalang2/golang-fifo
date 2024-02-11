@@ -179,7 +179,7 @@ func (s *S3FIFO[K, V]) Peek(key K) (value V, ok bool) {
 	return el.value, ok
 }
 
-func (s *S3FIFO[K, V]) SetOnEvict(callback types.OnEvictCallback[K, V]) {
+func (s *S3FIFO[K, V]) SetOnEvicted(callback types.OnEvictCallback[K, V]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

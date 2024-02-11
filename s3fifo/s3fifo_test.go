@@ -192,7 +192,7 @@ func TestEvictionCallback(t *testing.T) {
 	cache := New[int, int](10, noEvictionTTL)
 	evicted := make(map[int]int)
 
-	cache.SetOnEvict(func(key int, value int) {
+	cache.SetOnEvicted(func(key int, value int) {
 		evicted[key] = value
 	})
 
@@ -216,7 +216,7 @@ func TestEvictionCallbackWithTTL(t *testing.T) {
 	var mu sync.Mutex
 	cache := New[int, int](10, time.Second)
 	evicted := make(map[int]int)
-	cache.SetOnEvict(func(key int, value int) {
+	cache.SetOnEvicted(func(key int, value int) {
 		mu.Lock()
 		evicted[key] = value
 		mu.Unlock()

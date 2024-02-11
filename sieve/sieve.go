@@ -164,7 +164,7 @@ func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
 	return
 }
 
-func (s *Sieve[K, V]) SetOnEvict(callback types.OnEvictCallback[K, V]) {
+func (s *Sieve[K, V]) SetOnEvicted(callback types.OnEvictCallback[K, V]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
