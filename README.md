@@ -16,7 +16,8 @@ This offers state-of-the-art efficiency and scalability compared to other LRU-ba
 import "github.com/scalalang2/golang-fifo/sieve"
 
 size := 1e5
-cache := sieve.New[string, string](size)
+ttl := 0 // 0 means no expiration
+cache := sieve.New[string, string](size, ttl)
 
 // set value under hello
 cache.Set("hello", "world")
@@ -40,6 +41,26 @@ removed := cache.Remove("hello")
 if removed {
 	fmt.Println("hello was removed")
 }
+```
+
+## Expiry 
+```go
+import "github.com/scalalang2/golang-fifo/sieve"
+
+size := 1e5
+ttl := time.Second * 3600 // 1 hour
+cache := sieve.New[string, string](size, ttl)
+
+// this callback will be called when the element is expired
+cahe.SetOnEvict(func(key string, value string) {
+    fmt.Printf("key: %s, value: %s was evicted", key, value)
+})
+
+// set value under hello
+cache.Set("hello", "world")
+
+// remove all cache entries and stop the eviction goroutine.
+cache.Close()
 ```
 
 ## Benchmark Result
