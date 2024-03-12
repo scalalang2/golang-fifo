@@ -1,3 +1,4 @@
+[![Go Reference](https://pkg.go.dev/badge/github.com/scalalang2/golang-fifo.svg)](https://pkg.go.dev/github.com/scalalang2/golang-fifo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/scalalang2/golang-fifo)](https://goreportcard.com/report/github.com/scalalang2/golang-fifo)
 ![MIT License](https://img.shields.io/badge/license-MIT-_red.svg)
 [![Coverage Status](https://coveralls.io/repos/github/scalalang2/golang-fifo/badge.svg?branch=main)](https://coveralls.io/github/scalalang2/golang-fifo?branch=main)
