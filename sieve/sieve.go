@@ -3,9 +3,10 @@ package sieve
 import (
 	"container/list"
 	"context"
-	"github.com/scalalang2/golang-fifo/types"
 	"sync"
 	"time"
+
+	"github.com/scalalang2/golang-fifo/types"
 )
 
 const numberOfBuckets = 100
@@ -192,6 +193,9 @@ func (s *Sieve[K, V]) Purge() {
 		}
 	}
 
+	// hand pointer must also be reset
+	s.hand = nil
+	s.nextCleanupBucket = 0
 	s.ll.Init()
 }
 

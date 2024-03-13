@@ -70,17 +70,17 @@ The benchmark result were obtained using [go-cache-benchmark](https://github.com
 ```
 itemSize=500000, workloads=7500000, cacheSize=0.10%, zipf's alpha=0.99, concurrency=16
 
-      CACHE      | HITRATE | MEMORY  |   QPS   |  HITS   | MISSES
------------------+---------+---------+---------+---------+----------
-  sieve          | 47.66%  | 0.09MiB | 2508361 | 3574212 | 3925788
-  tinylfu        | 47.37%  | 0.11MiB | 2269542 | 3552921 | 3947079
-  s3-fifo        | 47.17%  | 0.18MiB | 1651619 | 3538121 | 3961879
-  slru           | 46.49%  | 0.11MiB | 2201350 | 3486476 | 4013524
-  s4lru          | 46.09%  | 0.12MiB | 2484266 | 3456682 | 4043318
-  two-queue      | 45.49%  | 0.17MiB | 1713502 | 3411800 | 4088200
-  clock          | 37.34%  | 0.10MiB | 2370417 | 2800750 | 4699250
-  lru-groupcache | 36.59%  | 0.11MiB | 2206841 | 2743894 | 4756106
-  lru-hashicorp  | 36.57%  | 0.08MiB | 2055358 | 2743000 | 4757000
+      CACHE      | HITRATE |   QPS   |  HITS   | MISSES
+-----------------+---------+---------+---------+----------
+  sieve          | 47.66%  | 2508361 | 3574212 | 3925788
+  tinylfu        | 47.37%  | 2269542 | 3552921 | 3947079
+  s3-fifo        | 47.17%  | 1651619 | 3538121 | 3961879
+  slru           | 46.49%  | 2201350 | 3486476 | 4013524
+  s4lru          | 46.09%  | 2484266 | 3456682 | 4043318
+  two-queue      | 45.49%  | 1713502 | 3411800 | 4088200
+  clock          | 37.34%  | 2370417 | 2800750 | 4699250
+  lru-groupcache | 36.59%  | 2206841 | 2743894 | 4756106
+  lru-hashicorp  | 36.57%  | 2055358 | 2743000 | 4757000
 ```
 
 **SIEVE** delivers both high hit rates and the highest QPS(queries per seconds) compared to other LRU-based caches. 
@@ -94,9 +94,66 @@ requiring a potentially slow lock acquisition,
 SIEVE only needs to update a single bit upon a cache hit. 
 This update can be done with a significantly faster reader lock, leading to increased performance.
 
-The real-world traces are also evaluted at [here](https://observablehq.com/@1a1a11a/sieve-miss-ratio-plots)
+The real-world traces are also evaluated at [here](https://observablehq.com/@1a1a11a/sieve-miss-ratio-plots)
 
 ## Appendix
+
+<details>
+<summary>Performance : golang-fifo</summary>
+
+```shell
+goos: linux
+goarch: amd64
+pkg: github.com/scalalang2/golang-fifo
+cpu: Intel(R) Core(TM) i5-10600KF CPU @ 4.10GHz
+BenchmarkCache
+BenchmarkCache/cache=sieve
+BenchmarkCache/cache=sieve/t=int32
+BenchmarkCache/cache=sieve/t=int32-12    2765682               393.8 ns/op           148 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    3037669               388.1 ns/op           149 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    3075998               395.0 ns/op           149 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    2924646               392.0 ns/op           148 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    2632326               409.3 ns/op           148 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    2746551               463.5 ns/op           148 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    3004071               401.0 ns/op           148 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    2398981               456.0 ns/op           149 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    2698939               422.9 ns/op           148 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int32-12    2647030               392.1 ns/op           148 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64
+BenchmarkCache/cache=sieve/t=int64-12    2532614               414.1 ns/op           158 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2825973               419.3 ns/op           158 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2693790               407.1 ns/op           158 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2882792               414.7 ns/op           157 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2903197               421.7 ns/op           157 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2876046               435.7 ns/op           157 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2846494               410.4 ns/op           157 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2455807               440.1 ns/op           158 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2774462               435.1 ns/op           158 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=int64-12    2833150               433.9 ns/op           157 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string
+BenchmarkCache/cache=sieve/t=string-12           2117859               546.9 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           2079752               527.1 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           2210930               530.8 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           2122942               514.4 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           2222488               553.6 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           2260266               558.6 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           2239196               567.1 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           2064308               576.8 ns/op           186 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           1882754               569.9 ns/op           185 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=string-12           1917342               574.6 ns/op           185 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite
+BenchmarkCache/cache=sieve/t=composite-12        1825063               707.0 ns/op           223 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1745775               660.1 ns/op           224 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1680552               678.1 ns/op           225 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1774438               690.1 ns/op           224 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1530580               731.1 ns/op           226 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1663950               761.7 ns/op           225 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1607760               678.4 ns/op           225 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1703283               784.4 ns/op           225 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1295089               864.6 ns/op           229 B/op          4 allocs/op
+BenchmarkCache/cache=sieve/t=composite-12        1552182               769.9 ns/op           226 B/op          4 allocs/op
+```
+</details>
 
 <details>
 <summary>Why LRU Cache is not good enough?</summary>
@@ -144,5 +201,5 @@ $ go test -v ./...
 
 How to run benchmark test
 ```bash
-$ go test -bench=. -benchtime=10s
+$ ./bench.sh
 ```

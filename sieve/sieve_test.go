@@ -199,3 +199,22 @@ func TestEvictionCallbackWithTTL(t *testing.T) {
 		}
 	}
 }
+
+func TestLargerWorkloadsThanCacheSize(t *testing.T) {
+	type value struct {
+		bytes []byte
+	}
+
+	cache := New[int32, value](128, 0)
+	workload := int32(256)
+	for i := int32(0); i < workload; i++ {
+		val := value{
+			bytes: make([]byte, 10),
+		}
+		cache.Set(i, val)
+
+		v, ok := cache.Get(i)
+		require.True(t, ok)
+		require.Equal(t, v, val)
+	}
+}
