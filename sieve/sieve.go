@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/swiss"
 	"github.com/scalalang2/golang-fifo/types"
 )
 
@@ -23,7 +24,7 @@ type entry[K comparable, V any] struct {
 
 // bucket is a container holding entries to be expired
 type bucket[K comparable, V any] struct {
-	entries     map[K]*entry[K, V]
+	entries     *swiss.Map[K, *entry[K, V]]
 	newestEntry time.Time
 }
 
@@ -32,7 +33,7 @@ type Sieve[K comparable, V any] struct {
 	cancel context.CancelFunc
 	mu     sync.Mutex
 	size   int
-	items  map[K]*entry[K, V]
+	items  *swiss.Map[K, *entry[K, V]]
 	ll     *list.List
 	hand   *list.Element
 
@@ -62,7 +63,7 @@ func New[K comparable, V any](size int, ttl time.Duration) *Sieve[K, V] {
 		ctx:               ctx,
 		cancel:            cancel,
 		size:              size,
-		items:             make(map[K]*entry[K, V]),
+		items:             swiss.New[K, *entry[K, V]](size),
 		ll:                list.New(),
 		buckets:           make([]bucket[K, V], numberOfBuckets),
 		ttl:               ttl,
@@ -70,7 +71,7 @@ func New[K comparable, V any](size int, ttl time.Duration) *Sieve[K, V] {
 	}
 
 	for i := 0; i < numberOfBuckets; i++ {
-		cache.buckets[i].entries = make(map[K]*entry[K, V])
+		cache.buckets[i].entries = swiss.New[K, *entry[K, V]](0)
 	}
 
 	if ttl != 0 {
@@ -95,7 +96,7 @@ func (s *Sieve[K, V]) Set(key K, value V) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if e, ok := s.items[key]; ok {
+	if e, ok := s.items.Get(key); ok {
 		s.removeFromBucket(e) // remove from the bucket as the entry is updated
 		e.value = value
 		e.visited = true
@@ -114,14 +115,14 @@ func (s *Sieve[K, V]) Set(key K, value V) {
 		element:   s.ll.PushFront(key),
 		expiredAt: time.Now().Add(s.ttl),
 	}
-	s.items[key] = e
+	s.items.Put(key, e)
 	s.addToBucket(e)
 }
 
 func (s *Sieve[K, V]) Get(key K) (value V, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if e, ok := s.items[key]; ok {
+	if e, ok := s.items.Get(key); ok {
 		e.visited = true
 		return e.value, true
 	}
@@ -133,7 +134,7 @@ func (s *Sieve[K, V]) Remove(key K) (ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if e, ok := s.items[key]; ok {
+	if e, ok := s.items.Get(key); ok {
 		// if the element to be removed is the hand,
 		// then move the hand to the previous one.
 		if e.element == s.hand {
@@ -150,7 +151,7 @@ func (s *Sieve[K, V]) Remove(key K) (ok bool) {
 func (s *Sieve[K, V]) Contains(key K) (ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, ok = s.items[key]
+	_, ok = s.items.Get(key)
 	return
 }
 
@@ -158,7 +159,7 @@ func (s *Sieve[K, V]) Peek(key K) (value V, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if e, ok := s.items[key]; ok {
+	if e, ok := s.items.Get(key); ok {
 		return e.value, true
 	}
 
@@ -183,14 +184,13 @@ func (s *Sieve[K, V]) Purge() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, e := range s.items {
-		s.removeEntry(e)
-	}
+	s.items.All(func(key K, value *entry[K, V]) bool {
+		s.removeEntry(value)
+		return true
+	})
 
 	for i := range s.buckets {
-		for k := range s.buckets[i].entries {
-			delete(s.buckets[i].entries, k)
-		}
+		s.buckets[i].entries.Clear()
 	}
 
 	// hand pointer must also be reset
@@ -213,7 +213,7 @@ func (s *Sieve[K, V]) removeEntry(e *entry[K, V]) {
 
 	s.ll.Remove(e.element)
 	s.removeFromBucket(e)
-	delete(s.items, e.key)
+	s.items.Delete(e.key)
 }
 
 func (s *Sieve[K, V]) evict() {
@@ -223,7 +223,7 @@ func (s *Sieve[K, V]) evict() {
 		o = s.ll.Back()
 	}
 
-	el, ok := s.items[o.Value.(K)]
+	el, ok := s.items.Get(o.Value.(K))
 	if !ok {
 		panic("sieve: evicting non-existent element")
 	}
@@ -235,7 +235,7 @@ func (s *Sieve[K, V]) evict() {
 			o = s.ll.Back()
 		}
 
-		el, ok = s.items[o.Value.(K)]
+		el, ok = s.items.Get(o.Value.(K))
 		if !ok {
 			panic("sieve: evicting non-existent element")
 		}
@@ -251,7 +251,7 @@ func (s *Sieve[K, V]) addToBucket(e *entry[K, V]) {
 	}
 	bucketId := (numberOfBuckets + s.nextCleanupBucket - 1) % numberOfBuckets
 	e.bucketID = bucketId
-	s.buckets[bucketId].entries[e.key] = e
+	s.buckets[bucketId].entries.Put(e.key, e)
 	if s.buckets[bucketId].newestEntry.Before(e.expiredAt) {
 		s.buckets[bucketId].newestEntry = e.expiredAt
 	}
@@ -261,7 +261,7 @@ func (s *Sieve[K, V]) removeFromBucket(e *entry[K, V]) {
 	if s.ttl == 0 {
 		return
 	}
-	delete(s.buckets[e.bucketID].entries, e.key)
+	s.buckets[e.bucketID].entries.Delete(e.key)
 }
 
 func (s *Sieve[K, V]) deleteExpired() {
@@ -277,9 +277,10 @@ func (s *Sieve[K, V]) deleteExpired() {
 		s.mu.Lock()
 	}
 
-	for _, e := range bucket.entries {
-		s.removeEntry(e)
-	}
+	bucket.entries.All(func(key K, value *entry[K, V]) bool {
+		s.removeEntry(value)
+		return true
+	})
 
 	s.mu.Unlock()
 }

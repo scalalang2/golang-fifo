@@ -20,7 +20,7 @@ type benchTypes interface {
 	int32 | int64 | string | compositeKey
 }
 
-func BenchmarkCache(b *testing.B) {
+func BenchmarkCacheSetAndGet(b *testing.B) {
 	b.Run("cache=sieve", func(b *testing.B) {
 		b.Run("t=int32", bench[int32](genKeysInt32))
 		b.Run("t=int64", bench[int64](genKeysInt64))
@@ -30,10 +30,8 @@ func BenchmarkCache(b *testing.B) {
 }
 
 func bench[T benchTypes](gen func(workload int) []T) func(b *testing.B) {
-	cacheSize := 100000
-
 	return func(b *testing.B) {
-		benchmarkSieveCache[T](b, cacheSize, gen)
+		benchmarkSieveCache[T](b, 100000, gen)
 	}
 }
 
