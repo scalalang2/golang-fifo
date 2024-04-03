@@ -9,6 +9,10 @@ import (
 	"github.com/scalalang2/golang-fifo/types"
 )
 
+// numberOfBuckets is the number of buckets to store the cache entries
+//
+// Notice: if this number exceeds 256, the type of nextCleanupBucket
+// in the Sieve struct should be changed to int16
 const numberOfBuckets = 100
 
 // entry holds the key and value of a cache entry.
@@ -249,8 +253,8 @@ func (s *Sieve[K, V]) addToBucket(e *entry[K, V]) {
 	if s.ttl == 0 {
 		return
 	}
-	bucketId := (numberOfBuckets + s.nextCleanupBucket - 1) % numberOfBuckets
-	e.bucketID = bucketId
+	bucketId := (numberOfBuckets + int(s.nextCleanupBucket) - 1) % numberOfBuckets
+	e.bucketID = int8(bucketId)
 	s.buckets[bucketId].entries[e.key] = e
 	if s.buckets[bucketId].newestEntry.Before(e.expiredAt) {
 		s.buckets[bucketId].newestEntry = e.expiredAt
