@@ -205,8 +205,8 @@ func TestLargerWorkloadsThanCacheSize(t *testing.T) {
 		bytes []byte
 	}
 
-	cache := New[int32, value](128, 0)
-	workload := int32(256)
+	cache := New[int32, value](512, time.Millisecond)
+	workload := int32(10240)
 	for i := int32(0); i < workload; i++ {
 		val := value{
 			bytes: make([]byte, 10),
