@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"fortio.org/assert"
 )
 
 const noEvictionTTL = 0
@@ -20,8 +20,8 @@ func TestGetAndSet(t *testing.T) {
 
 	for _, v := range items {
 		val, ok := cache.Get(v)
-		require.True(t, ok)
-		require.Equal(t, v*10, val)
+		assert.True(t, ok)
+		assert.Equal(t, v*10, val)
 	}
 
 	cache.Close()
@@ -32,19 +32,19 @@ func TestRemove(t *testing.T) {
 	cache.Set(1, 10)
 
 	val, ok := cache.Get(1)
-	require.True(t, ok)
-	require.Equal(t, 10, val)
+	assert.True(t, ok)
+	assert.Equal(t, 10, val)
 
 	// After removing the key, it should not be found
 	removed := cache.Remove(1)
-	require.True(t, removed)
+	assert.True(t, removed)
 
 	_, ok = cache.Get(1)
-	require.False(t, ok)
+	assert.False(t, ok)
 
 	// This should not panic
 	removed = cache.Remove(-1)
-	require.False(t, removed)
+	assert.False(t, removed)
 
 	cache.Close()
 }
@@ -65,7 +65,7 @@ func TestSievePolicy(t *testing.T) {
 	// hit popular objects
 	for _, v := range popularObjects {
 		_, ok := cache.Get(v)
-		require.True(t, ok)
+		assert.True(t, ok)
 	}
 
 	// add another objects to the cache
@@ -76,7 +76,7 @@ func TestSievePolicy(t *testing.T) {
 	// check popular objects are not evicted
 	for _, v := range popularObjects {
 		_, ok := cache.Get(v)
-		require.True(t, ok)
+		assert.True(t, ok)
 	}
 
 	cache.Close()
@@ -84,27 +84,27 @@ func TestSievePolicy(t *testing.T) {
 
 func TestContains(t *testing.T) {
 	cache := New[string, string](10, noEvictionTTL)
-	require.False(t, cache.Contains("hello"))
+	assert.False(t, cache.Contains("hello"))
 
 	cache.Set("hello", "world")
-	require.True(t, cache.Contains("hello"))
+	assert.True(t, cache.Contains("hello"))
 
 	cache.Close()
 }
 
 func TestLen(t *testing.T) {
 	cache := New[int, int](10, noEvictionTTL)
-	require.Equal(t, 0, cache.Len())
+	assert.Equal(t, 0, cache.Len())
 
 	cache.Set(1, 1)
-	require.Equal(t, 1, cache.Len())
+	assert.Equal(t, 1, cache.Len())
 
 	// duplicated keys only update the recent-ness of the key and value
 	cache.Set(1, 1)
-	require.Equal(t, 1, cache.Len())
+	assert.Equal(t, 1, cache.Len())
 
 	cache.Set(2, 2)
-	require.Equal(t, 2, cache.Len())
+	assert.Equal(t, 2, cache.Len())
 
 	cache.Close()
 }
@@ -113,10 +113,10 @@ func TestPurge(t *testing.T) {
 	cache := New[int, int](10, noEvictionTTL)
 	cache.Set(1, 1)
 	cache.Set(2, 2)
-	require.Equal(t, 2, cache.Len())
+	assert.Equal(t, 2, cache.Len())
 
 	cache.Purge()
-	require.Equal(t, 0, cache.Len())
+	assert.Equal(t, 0, cache.Len())
 
 	cache.Close()
 }
@@ -129,8 +129,8 @@ func TestTimeToLive(t *testing.T) {
 	for num := 1; num <= numberOfEntries; num++ {
 		cache.Set(num, num)
 		val, ok := cache.Get(num)
-		require.True(t, ok)
-		require.Equal(t, num, val)
+		assert.True(t, ok)
+		assert.Equal(t, num, val)
 	}
 
 	time.Sleep(ttl * 2)
@@ -138,7 +138,7 @@ func TestTimeToLive(t *testing.T) {
 	// check all entries are evicted
 	for num := 1; num <= numberOfEntries; num++ {
 		_, ok := cache.Get(num)
-		require.False(t, ok)
+		assert.False(t, ok)
 	}
 }
 
@@ -160,8 +160,8 @@ func TestEvictionCallback(t *testing.T) {
 
 	// check the first object is evicted
 	_, ok := cache.Get(1)
-	require.False(t, ok)
-	require.Equal(t, 1, evicted[1])
+	assert.False(t, ok)
+	assert.Equal(t, 1, evicted[1])
 
 	cache.Close()
 }
@@ -191,7 +191,7 @@ func TestEvictionCallbackWithTTL(t *testing.T) {
 			mu.Lock()
 			if len(evicted) == 10 {
 				for i := 1; i <= 10; i++ {
-					require.Equal(t, i, evicted[i])
+					assert.Equal(t, i, evicted[i])
 				}
 				return
 			}
@@ -214,7 +214,7 @@ func TestLargerWorkloadsThanCacheSize(t *testing.T) {
 		cache.Set(i, val)
 
 		v, ok := cache.Get(i)
-		require.True(t, ok)
-		require.Equal(t, v, val)
+		assert.True(t, ok)
+		assert.Equal(t, v, val)
 	}
 }
