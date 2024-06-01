@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"fortio.org/assert"
 )
 
 const noEvictionTTL = 0
@@ -15,8 +15,8 @@ func TestSetAndGet(t *testing.T) {
 	cache.Set("hello", "world")
 
 	value, ok := cache.Get("hello")
-	require.True(t, ok)
-	require.Equal(t, "world", value)
+	assert.True(t, ok)
+	assert.Equal(t, "world", value)
 }
 
 func TestRemove(t *testing.T) {
@@ -24,19 +24,19 @@ func TestRemove(t *testing.T) {
 	cache.Set(1, 10)
 
 	val, ok := cache.Get(1)
-	require.True(t, ok)
-	require.Equal(t, 10, val)
+	assert.True(t, ok)
+	assert.Equal(t, 10, val)
 
 	// After removing the key, it should not be found
 	removed := cache.Remove(1)
-	require.True(t, removed)
+	assert.True(t, removed)
 
 	_, ok = cache.Get(1)
-	require.False(t, ok)
+	assert.False(t, ok)
 
 	// This should not panic
 	removed = cache.Remove(-1)
-	require.False(t, removed)
+	assert.False(t, removed)
 }
 
 func TestEvictOneHitWonders(t *testing.T) {
@@ -55,14 +55,14 @@ func TestEvictOneHitWonders(t *testing.T) {
 	// hit one-hit wonders only once
 	for _, v := range oneHitWonders {
 		_, ok := cache.Get(v)
-		require.True(t, ok)
+		assert.True(t, ok)
 	}
 
 	// hit the popular objects
 	for i := 0; i < 3; i++ {
 		for _, v := range popularObjects {
 			_, ok := cache.Get(v)
-			require.True(t, ok)
+			assert.True(t, ok)
 		}
 	}
 
@@ -74,13 +74,13 @@ func TestEvictOneHitWonders(t *testing.T) {
 
 	for _, v := range oneHitWonders {
 		_, ok := cache.Get(v)
-		require.False(t, ok)
+		assert.False(t, ok)
 	}
 
 	// popular objects should still be in the cache
 	for _, v := range popularObjects {
 		_, ok := cache.Get(v)
-		require.True(t, ok)
+		assert.True(t, ok)
 	}
 }
 
@@ -97,8 +97,8 @@ func TestPeek(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		for _, v := range entries {
 			value, exist := cache.Peek(v)
-			require.True(t, exist)
-			require.Equal(t, v*10, value)
+			assert.True(t, exist)
+			assert.Equal(t, v*10, value)
 		}
 	}
 
@@ -112,7 +112,7 @@ func TestPeek(t *testing.T) {
 	// they should not exist in the cache
 	for _, v := range entries {
 		_, exist := cache.Peek(v)
-		require.False(t, exist)
+		assert.False(t, exist)
 	}
 }
 
@@ -126,11 +126,11 @@ func TestContains(t *testing.T) {
 
 	// check if each entry exists in the cache
 	for _, v := range entries {
-		require.True(t, cache.Contains(v))
+		assert.True(t, cache.Contains(v))
 	}
 
 	for i := 6; i <= 10; i++ {
-		require.False(t, cache.Contains(i))
+		assert.False(t, cache.Contains(i))
 	}
 }
 
@@ -138,15 +138,15 @@ func TestLength(t *testing.T) {
 	cache := New[string, string](10, noEvictionTTL)
 
 	cache.Set("hello", "world")
-	require.Equal(t, 1, cache.Len())
+	assert.Equal(t, 1, cache.Len())
 
 	cache.Set("hello2", "world")
 	cache.Set("hello", "changed")
-	require.Equal(t, 2, cache.Len())
+	assert.Equal(t, 2, cache.Len())
 
 	value, ok := cache.Get("hello")
-	require.True(t, ok)
-	require.Equal(t, "changed", value)
+	assert.True(t, ok)
+	assert.Equal(t, "changed", value)
 }
 
 func TestClean(t *testing.T) {
@@ -156,15 +156,15 @@ func TestClean(t *testing.T) {
 	for _, v := range entries {
 		cache.Set(v, v*10)
 	}
-	require.Equal(t, 5, cache.Len())
+	assert.Equal(t, 5, cache.Len())
 	cache.Purge()
 
 	// check if each entry exists in the cache
 	for _, v := range entries {
 		_, exist := cache.Peek(v)
-		require.False(t, exist)
+		assert.False(t, exist)
 	}
-	require.Equal(t, 0, cache.Len())
+	assert.Equal(t, 0, cache.Len())
 }
 
 func TestTimeToLive(t *testing.T) {
@@ -175,8 +175,8 @@ func TestTimeToLive(t *testing.T) {
 	for num := 1; num <= numberOfEntries; num++ {
 		cache.Set(num, num)
 		val, ok := cache.Get(num)
-		require.True(t, ok)
-		require.Equal(t, num, val)
+		assert.True(t, ok)
+		assert.Equal(t, num, val)
 	}
 
 	time.Sleep(ttl * 2)
@@ -184,7 +184,7 @@ func TestTimeToLive(t *testing.T) {
 	// check all entries are evicted
 	for num := 1; num <= numberOfEntries; num++ {
 		_, ok := cache.Get(num)
-		require.False(t, ok)
+		assert.False(t, ok)
 	}
 }
 
@@ -206,8 +206,8 @@ func TestEvictionCallback(t *testing.T) {
 
 	// check the first object is evicted
 	_, ok := cache.Get(1)
-	require.False(t, ok)
-	require.Equal(t, 1, evicted[1])
+	assert.False(t, ok)
+	assert.Equal(t, 1, evicted[1])
 
 	cache.Close()
 }
@@ -237,7 +237,7 @@ func TestEvictionCallbackWithTTL(t *testing.T) {
 			mu.Lock()
 			if len(evicted) == 10 {
 				for i := 1; i <= 10; i++ {
-					require.Equal(t, i, evicted[i])
+					assert.Equal(t, i, evicted[i])
 				}
 				return
 			}
