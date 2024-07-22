@@ -43,8 +43,7 @@ type Sieve[K comparable, V any] struct {
 	buckets []bucket[K, V]
 
 	// ttl is the time to live of the cache entry
-	ttl        time.Duration
-	ttlEnabled bool
+	ttl time.Duration
 
 	// nextCleanupBucket is an index of the next bucket to be cleaned up
 	nextCleanupBucket int8
@@ -60,6 +59,10 @@ func New[K comparable, V any](size int, ttl time.Duration) *Sieve[K, V] {
 
 	if ttl <= 0 {
 		ttl = 0
+	}
+
+	if size <= 0 {
+		panic("sieve: size must be greater than 0")
 	}
 
 	cache := &Sieve[K, V]{
