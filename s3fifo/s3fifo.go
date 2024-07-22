@@ -44,8 +44,7 @@ type S3FIFO[K comparable, V any] struct {
 	buckets []bucket[K, V]
 
 	// ttl is the time to live of the cache entry
-	ttl        time.Duration
-	ttlEnabled bool
+	ttl time.Duration
 
 	// nextCleanupBucket is an index of the next bucket to be cleaned up
 	nextCleanupBucket int8
