@@ -1,6 +1,19 @@
 package types
 
-type OnEvictCallback[K comparable, V any] func(key K, value V)
+// EvictReason is the reason for an entry to be evicted from the cache.
+// It is used in the [OnEvictCallback] function.
+type EvictReason int
+
+const (
+	// EvictReasonExpired is used when an item is removed because its TTL has expired.
+	EvictReasonExpired = iota
+	// EvictReasonEvicted is used when an item is removed because the cache size limit was exceeded.
+	EvictReasonEvicted
+	// EvictReasonRemoved is used when an item is explicitly deleted.
+	EvictReasonRemoved
+)
+
+type OnEvictCallback[K comparable, V any] func(key K, value V, reason EvictReason)
 
 // Cache is the interface for a cache.
 type Cache[K comparable, V any] interface {
