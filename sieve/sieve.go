@@ -81,21 +81,23 @@ func New[K comparable, V any](size int, ttl time.Duration) *Sieve[K, V] {
 	}
 
 	if ttl != 0 {
-		go func(ctx context.Context) {
-			ticker := time.NewTicker(ttl / numberOfBuckets)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					cache.deleteExpired()
-				}
-			}
-		}(cache.ctx)
+		go cache.cleanup(cache.ctx)
 	}
 
 	return cache
+}
+
+func (s *Sieve[K, V]) cleanup(ctx context.Context) {
+	ticker := time.NewTicker(s.ttl / numberOfBuckets)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.deleteExpired()
+		}
+	}
 }
 
 func (s *Sieve[K, V]) Set(key K, value V) {
@@ -147,7 +149,7 @@ func (s *Sieve[K, V]) Remove(key K) (ok bool) {
 			s.hand = s.hand.Prev()
 		}
 
-		s.removeEntry(e)
+		s.removeEntry(e, types.EvictReasonRemoved)
 		return true
 	}
 
@@ -191,7 +193,7 @@ func (s *Sieve[K, V]) Purge() {
 	defer s.mu.Unlock()
 
 	for _, e := range s.items {
-		s.removeEntry(e)
+		s.removeEntry(e, types.EvictReasonRemoved)
 	}
 
 	for i := range s.buckets {
@@ -213,9 +215,9 @@ func (s *Sieve[K, V]) Close() {
 	s.mu.Unlock()
 }
 
-func (s *Sieve[K, V]) removeEntry(e *entry[K, V]) {
+func (s *Sieve[K, V]) removeEntry(e *entry[K, V], reason types.EvictReason) {
 	if s.callback != nil {
-		s.callback(e.key, e.value)
+		s.callback(e.key, e.value, reason)
 	}
 
 	s.ll.Remove(e.element)
@@ -249,7 +251,7 @@ func (s *Sieve[K, V]) evict() {
 	}
 
 	s.hand = o.Prev()
-	s.removeEntry(el)
+	s.removeEntry(el, types.EvictReasonEvicted)
 }
 
 func (s *Sieve[K, V]) addToBucket(e *entry[K, V]) {
@@ -285,7 +287,7 @@ func (s *Sieve[K, V]) deleteExpired() {
 	}
 
 	for _, e := range bucket.entries {
-		s.removeEntry(e)
+		s.removeEntry(e, types.EvictReasonExpired)
 	}
 
 	s.mu.Unlock()

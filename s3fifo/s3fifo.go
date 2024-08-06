@@ -3,9 +3,10 @@ package s3fifo
 import (
 	"container/list"
 	"context"
-	"github.com/scalalang2/golang-fifo/types"
 	"sync"
 	"time"
+
+	"github.com/scalalang2/golang-fifo/types"
 )
 
 const numberOfBuckets = 100
@@ -150,7 +151,7 @@ func (s *S3FIFO[K, V]) Remove(key K) (ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e, ok := s.items[key]; ok {
-		s.removeEntry(e)
+		s.removeEntry(e, types.EvictReasonRemoved)
 		return true
 	}
 
@@ -209,9 +210,9 @@ func (s *S3FIFO[K, V]) Close() {
 	s.mu.Unlock()
 }
 
-func (s *S3FIFO[K, V]) removeEntry(e *entry[K, V]) {
+func (s *S3FIFO[K, V]) removeEntry(e *entry[K, V], reason types.EvictReason) {
 	if s.callback != nil {
-		s.callback(e.key, e.value)
+		s.callback(e.key, e.value, reason)
 	}
 
 	if s.ghost.contains(e.key) {
@@ -256,7 +257,7 @@ func (s *S3FIFO[K, V]) deleteExpired() {
 	}
 
 	for _, e := range bucket.entries {
-		s.removeEntry(e)
+		s.removeEntry(e, types.EvictReasonExpired)
 	}
 
 	s.mu.Unlock()
@@ -292,7 +293,7 @@ func (s *S3FIFO[K, V]) evictFromSmall() {
 				s.evictFromMain()
 			}
 		} else {
-			s.removeEntry(el)
+			s.removeEntry(el, types.EvictReasonEvicted)
 			s.ghost.add(key)
 			evicted = true
 			delete(s.items, key)
@@ -314,7 +315,7 @@ func (s *S3FIFO[K, V]) evictFromMain() {
 			s.items[key].freq -= 1
 			s.items[key].element = s.main.PushFront(el.key)
 		} else {
-			s.removeEntry(el)
+			s.removeEntry(el, types.EvictReasonEvicted)
 			evicted = true
 			delete(s.items, key)
 		}
