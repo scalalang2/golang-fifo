@@ -13,7 +13,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.22.x'
+          go-version: '1.23.x'
       - name: Check out code
         uses: actions/checkout@v4
       - name: Install dependencies
@@ -33,9 +33,9 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: Setup Go 1.22.x
+      - name: Setup Go 1.23.x
         uses: actions/setup-go@v4
         with:
-          go-version: '1.22.x'
+          go-version: '1.23.x'
       - name: Build
         run: go build -v ./...
