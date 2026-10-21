@@ -1,5 +1,5 @@
 module github.com/scalalang2/golang-fifo
 
-go 1.24
+go 1.27.0
 
 require fortio.org/assert v1.2.1
